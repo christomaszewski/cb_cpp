@@ -144,7 +144,7 @@ class ClosedConstraint(BasicConstraint):
 				return None
 		elif len(self.ingress_points) > 1:
 			# take first ingress point for now
-			return self.ingress_points[0]
+			ingress_point = self.ingress_points[0]
 		else:
 			ingress_point = self.ingress_points[0]
 
