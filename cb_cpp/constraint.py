@@ -159,7 +159,7 @@ class ClosedConstraint(BasicConstraint):
 
 		endpoint = self._coord_list[transition_index] - endpoint_offset * final_segment
 
-		coords = [*self._coord_list[transition_index::step], *self._coord_list[:transition_index:step], endpoint]
+		coords = [*self._coord_list[transition_index::step], *self._coord_list[:transition_index:step], tuple(endpoint)]
 		return coords
 
 	def select_ingress(self, ingress_point):
