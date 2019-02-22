@@ -6,12 +6,12 @@ from .base import ConstraintLinker
 class SimpleLinker(ConstraintLinker):
 	""" Simply connects each constraint egress to the following constraint's ingress point """
 
-	def link_constraints(self, constraint_chain):
+	def link_constraints(self, constraint_chain, offset=0.0):
 		coords = []
 		path_constraints = collections.defaultdict(list)
 
 		for c in constraint_chain:
-			new_coords = c.get_coord_list(endpoint_offset=0.1)
+			new_coords = c.get_coord_list(endpoint_offset=offset)
 			if new_coords is not None:
 				coords.extend(new_coords)
 			else:
