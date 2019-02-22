@@ -1,0 +1,15 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+robot-primitives = {editable = true,git = "https://github.com/christomaszewski/robot_primitives.git"}
+numpy = "*"
+shapely = "*"
+sortedcontainers = "*"
+
+[requires]
+python_version = "3.6"
