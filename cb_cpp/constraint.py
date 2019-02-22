@@ -85,9 +85,9 @@ class OpenConstraint(BasicConstraint):
 				print('Error: an unknown error occurred')
 				return None
 
-		# Direction not constrained and no ingress_point specified
+		# Direction not constrained and no ingress_point specified, just return coords
 		else:
-			return None
+			return self._coord_list
 
 	def select_ingress(self, ingress_point):
 		""" For open constraints choosing an ingress point implicitly constrains
@@ -143,7 +143,8 @@ class ClosedConstraint(BasicConstraint):
 			if not self.select_ingress(ingress_point):
 				return None
 		elif len(self.ingress_points) > 1:
-			return None
+			# take first ingress point for now
+			return self.ingress_points[0]
 		else:
 			ingress_point = self.ingress_points[0]
 
