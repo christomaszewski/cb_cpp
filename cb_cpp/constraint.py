@@ -1,4 +1,5 @@
 import shapely.geometry
+import numpy as np
 
 from .base import Constraint
 
@@ -137,7 +138,7 @@ class OpenConstraint(BasicConstraint):
 class ClosedConstraint(BasicConstraint):
 	""" Class to represent a closed loop constraint """
 
-	def get_coord_list(self, ingress_point=None):
+	def get_coord_list(self, ingress_point=None, endpoint_offset=0.0):
 		if ingress_point:
 			# currently saves ingress_point choice, maybe shouldn't do this
 			if not self.select_ingress(ingress_point):
@@ -153,7 +154,12 @@ class ClosedConstraint(BasicConstraint):
 		if self.is_constrained('direction') and self._constrained_parameters['direction'][0] != 0:
 			step = -1
 
-		coords = [*self._coord_list[transition_index::step], *self._coord_list[:transition_index:step], self._coord_list[transition_index]]
+		final_segment = np.asarray(self._coord_list[transition_index]) - np.asarray(self._coord_list[(transition_index-step)%len(self._coord_list)])
+		final_segment /= np.linalg.norm(final_segment)
+
+		endpoint = self._coord_list[transition_index] - endpoint_offset * final_segment
+
+		coords = [*self._coord_list[transition_index::step], *self._coord_list[:transition_index:step], endpoint]
 		return coords
 
 	def select_ingress(self, ingress_point):

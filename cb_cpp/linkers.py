@@ -11,7 +11,7 @@ class SimpleLinker(ConstraintLinker):
 		path_constraints = collections.defaultdict(list)
 
 		for c in constraint_chain:
-			new_coords = c.get_coord_list()
+			new_coords = c.get_coord_list(endpoint_offset=0.1)
 			if new_coords is not None:
 				coords.extend(new_coords)
 			else:
