@@ -5,7 +5,7 @@ import operator
 from .base import ConstraintLayout
 from .constraint import OpenConstraint, ClosedConstraint
 
-class LawnmowerPattern(ConstraintLayout):
+class BoustrophedonPattern(ConstraintLayout):
 
 	def __init__(self, sensor_radius, vehicle_radius, **unknown_options):
 		# TODO Add orientation support
@@ -25,15 +25,13 @@ class LawnmowerPattern(ConstraintLayout):
 			return [OpenConstraint(coords)]		
 
 		offset_polygon = area.polygon.buffer(-self._vehicle_radius, join_style=2)
-		print(offset_polygon, offset_polygon.is_empty)
+
 		x_min, _, x_max, _ = offset_polygon.bounds
 		_, y_min, _, y_max = area.bounds
 
 		x_dist = x_max - x_min
 		num_constraints = np.ceil(x_dist / (2*self._sensor_radius)).astype(int)
 		transect_width = np.around(x_dist / num_constraints, decimals=5)
-
-		print('constraint facts', x_dist, num_constraints, transect_width, area_width)
 
 		current_x_pos = x_min
 		constraints = []
@@ -44,7 +42,6 @@ class LawnmowerPattern(ConstraintLayout):
 		while current_x_pos <= x_max:
 			if offset_polygon.intersects(sweep_line):
 				intersection = offset_polygon.intersection(sweep_line)
-				print('intersecton', intersection.wkt, 'sweep_line coords', line_coords, 'offset polygon coords', offset_polygon.wkt)
 				
 				intersection_coords = list(intersection.coords)
 

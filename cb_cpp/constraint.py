@@ -58,7 +58,7 @@ class OpenConstraint(BasicConstraint):
 		
 		self._endpoints = (first, last)
 
-	def get_coord_list(self, ingress_point=None):
+	def get_coord_list(self, ingress_point=None, **unknown_parameters):
 		# If direction is constrained
 		if 'direction' in self._constrained_parameters:
 			direction = self._constrained_parameters['direction']
@@ -138,7 +138,7 @@ class OpenConstraint(BasicConstraint):
 class ClosedConstraint(BasicConstraint):
 	""" Class to represent a closed loop constraint """
 
-	def get_coord_list(self, ingress_point=None, endpoint_offset=0.0):
+	def get_coord_list(self, ingress_point=None, endpoint_offset=0.0, **unknown_parameters):
 		if ingress_point:
 			# currently saves ingress_point choice, maybe shouldn't do this
 			if not self.select_ingress(ingress_point):
