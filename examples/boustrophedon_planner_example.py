@@ -11,3 +11,5 @@ domain = rp.areas.Domain.from_box_corners((0,0), (10,10))
 
 planner = cb_cpp.planners.ConstraintBasedBoustrophedon(sensor_radius, vehicle_radius)
 path = planner.plan_coverage_path(domain, ingress_point)
+
+print(path.length)

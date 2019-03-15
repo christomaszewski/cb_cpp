@@ -56,6 +56,53 @@ class DownstreamDrift(ConstraintRefinement):
 		return constraints
 
 
+class MaximizeFlowAlignment(ConstraintRefinement):
+
+	def __init__(self, flow_field):
+		self._flow_field = flow_field
+		self._energy_heuristic = rp.heuristics.OpposingFlowEnergy(flow_field)
+
+	def refine_constraints(self, constraints, default_thrust=(0.,1.)):
+		constraint_costs = []
+		constraint_idx = []
+
+		for idx, c in enumerate(constraints):
+			# assumes all constraints have coords orders similarly
+			coords = c.coord_list
+			#print('computing cost of constraint', idx)
+			cost = 0.
+			for start, end in zip(coords, coords[1:]):
+				cost += self._energy_heuristic.compute_cost(start, end)
+
+			constraint_costs.append(cost)
+			constraint_idx.append(idx)
+
+		#print(constraint_costs)
+
+		sorted_constraints = SortedList(constraint_idx, key=lambda i:constraint_costs[i])
+
+		split_index = np.ceil(len(sorted_constraints) / 2).astype(int)
+		
+		# constrain the direction of constraints to lie with the flow where fastest
+		# and against the flow where the flow is slowest
+		for index in sorted_constraints[split_index:]:
+			c = constraints[index]
+			if not c.is_constrained('direction'):
+				c.constrain_parameter('direction', [1,0])
+			else: 
+				c.direction = [1,0]
+
+		for index in sorted_constraints[:split_index]:
+			c = constraints[index]
+			
+			if not c.is_constrained('direction'):
+				c.constrain_parameter('direction', [0,1])
+			else: 
+				c.direction = [0,1]
+
+		return constraints
+
+
 class OptimizedDrift(ConstraintRefinement):
 
 	def __init__(self, flow_field):
@@ -69,7 +116,7 @@ class OptimizedDrift(ConstraintRefinement):
 		for idx, c in enumerate(constraints):
 			# assumes all constraints have coords orders similarly
 			coords = c.coord_list
-			print('computing cost of constraint', idx)
+			#print('computing cost of constraint', idx)
 			cost = 0.
 			for start, end in zip(coords, coords[1:]):
 				cost += self._energy_heuristic.compute_cost(start, end)

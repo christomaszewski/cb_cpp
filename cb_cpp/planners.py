@@ -68,7 +68,7 @@ class DriftingBoustrophedon(object):
 		return path
 
 
-class EnergyEfficientCoverage(object):
+class EnergyEfficientBoustrophedon(object):
 
 	def __init__(self, sensor_radius, vehicle_radius, flow_field, **unknown_options):
 		self._sensor_radius = sensor_radius
@@ -77,7 +77,31 @@ class EnergyEfficientCoverage(object):
 		self._sequencing_heuristic = rp.heuristics.OpposingFlowEnergy(flow_field)
 
 		self._layout = layouts.BoustrophedonPattern(sensor_radius, vehicle_radius)
-		self._refinements = [refinements.OptimizedDrift(flow_field)]
+		self._refinements = [refinements.MaximizeFlowAlignment(flow_field)]
+		self._sequencer = sequencers.GreedySequencer(self._sequencing_heuristic)
+		self._linker = linkers.SimpleLinker()
+
+	def plan_coverage_path(self, area, area_ingress_point=None):
+		constraints = self._layout.layout_constraints(area)
+		for r in self._refinements:
+			r.refine_constraints(constraints)
+		constraint_chain = self._sequencer.sequence_constraints(constraints, area_ingress_point)
+		path = self._linker.link_constraints(constraint_chain)
+
+		return path
+		
+
+class EnergyEfficientDrift(object):
+
+	def __init__(self, sensor_radius, vehicle_radius, flow_field, **unknown_options):
+		self._sensor_radius = sensor_radius
+		self._vehicle_radius = vehicle_radius
+		self._flow_field = flow_field
+		self._sequencing_heuristic = rp.heuristics.OpposingFlowEnergy(flow_field)
+
+		self._layout = layouts.BoustrophedonPattern(sensor_radius, vehicle_radius)
+		self._refinements = [refinements.MaximizeFlowAlignment(flow_field)]
+		self._refinements.append(refinements.DownstreamDrift(flow_field))
 		self._sequencer = sequencers.GreedySequencer(self._sequencing_heuristic)
 		self._linker = linkers.SimpleLinker()
 
