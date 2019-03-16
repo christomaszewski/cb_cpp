@@ -74,7 +74,8 @@ class EnergyEfficientBoustrophedon(object):
 		self._sensor_radius = sensor_radius
 		self._vehicle_radius = vehicle_radius
 		self._flow_field = flow_field
-		self._sequencing_heuristic = rp.heuristics.OpposingFlowEnergy(flow_field)
+		self._sequencing_heuristic = rp.heuristics.EuclideanDistance()
+		#rp.heuristics.OpposingFlowEnergy(flow_field)
 
 		self._layout = layouts.BoustrophedonPattern(sensor_radius, vehicle_radius)
 		self._refinements = [refinements.MaximizeFlowAlignment(flow_field)]
