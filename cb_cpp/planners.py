@@ -5,11 +5,14 @@ from . import layouts, refinements, sequencers, linkers
 
 class ConstraintBasedBoustrophedon(object):
 
-	def __init__(self, sensor_radius, vehicle_radius, **unknown_options):
+	def __init__(self, sensor_radius, vehicle_radius, horizontal=False, **unknown_options):
 		self._sensor_radius = sensor_radius
 		self._vehicle_radius = vehicle_radius
 		self._heuristic = rp.heuristics.EuclideanDistance()
-		self._layout = layouts.BoustrophedonPattern(sensor_radius, vehicle_radius)
+		if horizontal:
+			self._layout = layouts.HorizontalBoustrophedonPattern(sensor_radius, vehicle_radius)
+		else:
+			self._layout = layouts.BoustrophedonPattern(sensor_radius, vehicle_radius)
 		self._refinements = [refinements.AlternatingDirections()]
 		self._sequencer = sequencers.GreedySequencer(self._heuristic)
 		self._linker = linkers.SimpleLinker()
