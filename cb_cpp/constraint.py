@@ -69,7 +69,7 @@ class OpenConstraint(BasicConstraint):
 			elif direction[0] == 0:
 				return self._coord_list
 			else:
-				return reversed(self._coord_list)
+				return list(reversed(self._coord_list))
 		
 		# Direction is not constrained but ingress_point specified
 		elif ingress_point is not None:

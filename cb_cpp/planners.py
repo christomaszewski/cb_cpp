@@ -82,7 +82,7 @@ class EnergyEfficientBoustrophedon(object):
 
 		self._layout = layouts.BoustrophedonPattern(sensor_radius, vehicle_radius)
 		self._refinements = [refinements.MaximizeFlowAlignment(flow_field)]
-		self._sequencer = sequencers.GreedySequencer(self._sequencing_heuristic)
+		self._sequencer = sequencers.MatchingSequencer(self._sequencing_heuristic)
 		self._linker = linkers.SimpleLinker()
 
 	def plan_coverage_path(self, area, area_ingress_point=None):
