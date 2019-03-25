@@ -20,7 +20,7 @@ class ConstraintBasedBoustrophedon(object):
 	def plan_coverage_path(self, area, area_ingress_point=None):
 		constraints = self._layout.layout_constraints(area)
 		for r in self._refinements:
-			r.refine_constraints(constraints)
+			r.refine_constraints(constraints, area_ingress_point=area_ingress_point)
 		constraint_chain = self._sequencer.sequence_constraints(constraints, area_ingress_point)
 		path = self._linker.link_constraints(constraint_chain)
 
@@ -41,7 +41,7 @@ class ConstraintBasedSpiral(object):
 	def plan_coverage_path(self, area, area_ingress_point=None):
 		constraints = self._layout.layout_constraints(area)
 		for r in self._refinements:
-			r.refine_constraints(constraints)
+			r.refine_constraints(constraints, area_ingress_point=area_ingress_point)
 		constraint_chain = self._sequencer.sequence_constraints(constraints, area_ingress_point)
 		path = self._linker.link_constraints(constraint_chain)
 
@@ -64,7 +64,7 @@ class DriftingBoustrophedon(object):
 	def plan_coverage_path(self, area, area_ingress_point=None):
 		constraints = self._layout.layout_constraints(area)
 		for r in self._refinements:
-			r.refine_constraints(constraints)
+			r.refine_constraints(constraints, area_ingress_point=area_ingress_point)
 		constraint_chain = self._sequencer.sequence_constraints(constraints, area_ingress_point)
 		path = self._linker.link_constraints(constraint_chain)
 
@@ -88,7 +88,7 @@ class EnergyEfficientBoustrophedon(object):
 	def plan_coverage_path(self, area, area_ingress_point=None):
 		constraints = self._layout.layout_constraints(area)
 		for r in self._refinements:
-			r.refine_constraints(constraints)
+			r.refine_constraints(constraints, area_ingress_point=area_ingress_point)
 		constraint_chain = self._sequencer.sequence_constraints(constraints, area_ingress_point)
 		path = self._linker.link_constraints(constraint_chain)
 
@@ -113,7 +113,7 @@ class EnergyEfficientDrift(object):
 	def plan_coverage_path(self, area, area_ingress_point=None):
 		constraints = self._layout.layout_constraints(area)
 		for r in self._refinements:
-			r.refine_constraints(constraints)
+			r.refine_constraints(constraints, area_ingress_point=area_ingress_point)
 		constraint_chain = self._sequencer.sequence_constraints(constraints, area_ingress_point)
 		path = self._linker.link_constraints(constraint_chain)
 

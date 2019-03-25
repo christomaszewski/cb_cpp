@@ -99,7 +99,8 @@ class OpenConstraint(BasicConstraint):
 			ingress_index = self.ingress_points.index(ingress_point)
 
 			if not self.is_constrained('direction'):
-				direction = [ingress_index, (ingress_point_index+1)%2]
+				direction = [ingress_index, (ingress_index+1)%2]
+
 				self.constrain_parameter('direction', direction)
 
 			return True
@@ -107,7 +108,7 @@ class OpenConstraint(BasicConstraint):
 			print(f"Error: specified ingress_point {ingress_point} not found in constraint ingress_points")
 			return False
 		except:
-			print('Error: an unknown error occurred')
+			print('Error: an unknown error occurred while trying to select ingress')
 			return False
 
 	@property

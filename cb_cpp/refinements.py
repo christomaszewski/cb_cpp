@@ -8,13 +8,39 @@ from .base import ConstraintRefinement
 
 class AlternatingDirections(ConstraintRefinement):
 
-	def refine_constraints(self, constraints, starting_direction=[0,1]):
-		current_direction = starting_direction
+	def refine_constraints(self, constraints, area_ingress_point=None, starting_direction=[0,1], **unknown_options):
+		starting_constraint_idx = 0
 
-		for c in constraints:
+		# Find/select closest constraint to ingress point
+		if area_ingress_point is not None:
+			starting_constraint = None
+			min_cost = None
+
+			for c_idx, c in enumerate(constraints):
+				for pt_idx, pt in enumerate(c.ingress_points):
+					cost = rp.heuristics.EuclideanDistance.compute_cost(area_ingress_point, pt)
+					if min_cost is None or cost < min_cost:
+						min_cost = cost
+						starting_constraint = c
+						starting_constraint_idx = c_idx
+						ingress_point = pt
+						ingress_point_idx = pt_idx
+
+			starting_constraint.select_ingress(ingress_point)
+			starting_direction = starting_constraint.direction.copy()
+
+		current_direction = starting_direction.copy()
+
+		for c in constraints[ingress_point_idx:]:
 			c.constrain_parameter('direction', current_direction.copy())
 			current_direction.reverse()
 
+		current_direction = starting_direction.copy()
+
+		for c in constraints[ingress_point_idx::-1]:
+			c.constrain_parameter('direction', current_direction.copy())
+			current_direction.reverse()
+		
 		return constraints
 
 
@@ -23,7 +49,7 @@ class DownstreamDrift(ConstraintRefinement):
 	def __init__(self, flow_field):
 		self._flow_field = flow_field
 
-	def refine_constraints(self, constraints, default_thrust=(0.,1.)):
+	def refine_constraints(self, constraints, default_thrust=(0.,1.), **unknown_options):
 		for c in constraints:
 			if not c.is_constrained('direction'):
 				print('Error: Constraint direction is unconstrained')
@@ -62,7 +88,7 @@ class MaximizeFlowAlignment(ConstraintRefinement):
 		self._flow_field = flow_field
 		self._energy_heuristic = rp.heuristics.OpposingFlowEnergy(flow_field)
 
-	def refine_constraints(self, constraints, default_thrust=(0.,1.)):
+	def refine_constraints(self, constraints, default_thrust=(0.,1.), **unknown_options):
 		constraint_costs = []
 		constraint_idx = []
 
@@ -109,7 +135,7 @@ class OptimizedDrift(ConstraintRefinement):
 		self._flow_field = flow_field
 		self._energy_heuristic = rp.heuristics.OpposingFlowEnergy(flow_field)
 
-	def refine_constraints(self, constraints, default_thrust=(0.,1.)):
+	def refine_constraints(self, constraints, default_thrust=(0.,1.), **unknown_options):
 		constraint_costs = []
 		constraint_idx = []
 
