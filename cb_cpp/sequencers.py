@@ -126,11 +126,23 @@ class MatchingSequencer(ConstraintSequencer):
 			ingress_point = None
 			ingress_point_index = None
 			min_cost = None
+			secondary_cost = None
 			next_direction = tuple(constraint_chain[-1].direction[::-1])
 			for c in constraint_partitions[next_direction]:
 				for idx, pt in enumerate(c.ingress_points):
 					cost = self._heuristic.compute_cost(chain_egress_pt, pt)
-					if min_cost is None or cost < min_cost:
+					if min_cost is not None and cost == min_cost:
+							tiebreaker_current = self._heuristic.compute_cost(ingress_point, constraint_chain[0].ingress_points[0])
+							tiebreaker_new = self._heuristic.compute_cost(pt, constraint_chain[0].ingress_points[0])
+							print(f"equal cost constaints, choosing constraint furthest from area ingress point {tiebreaker_current} {tiebreaker_new}")
+							if tiebreaker_new > tiebreaker_current:
+								print('switching to new constraint')
+								min_cost = cost
+								next_constraint = c
+								ingress_point = pt
+								ingress_point_index = idx
+										
+					elif min_cost is None or cost < min_cost:
 						min_cost = cost
 						next_constraint = c
 						ingress_point = pt
