@@ -31,13 +31,13 @@ class AlternatingDirections(ConstraintRefinement):
 
 		current_direction = starting_direction.copy()
 
-		for c in constraints[ingress_point_idx:]:
+		for c in constraints[starting_constraint_idx:]:
 			c.constrain_parameter('direction', current_direction.copy())
 			current_direction.reverse()
 
 		current_direction = starting_direction.copy()
 
-		for c in constraints[ingress_point_idx::-1]:
+		for c in constraints[starting_constraint_idx::-1]:
 			c.constrain_parameter('direction', current_direction.copy())
 			current_direction.reverse()
 		
