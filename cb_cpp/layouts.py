@@ -6,8 +6,9 @@ from .base import ConstraintLayout
 from .constraint import OpenConstraint, ClosedConstraint
 
 class BoustrophedonPattern(ConstraintLayout):
+	""" Deprecated: Use OrientedBoustrophedonPattern instead """
 
-	def __init__(self, sensor_radius, vehicle_radius, **unknown_options):
+	def __init__(self, vehicle_radius, sensor_radius, **unknown_options):
 		# TODO Add orientation support
 		self._sensor_radius = sensor_radius
 		self._vehicle_radius = vehicle_radius
@@ -16,6 +17,7 @@ class BoustrophedonPattern(ConstraintLayout):
 		# TODO needs to be able to lay out constraints in any direction
 		x_min, y_min, x_max, y_max = area.bounds
 		area_width = x_max - x_min
+		print(f"area width: {area_width}")
 		if area_width < 2*self._vehicle_radius:
 			print('Error: Cell width is smaller than diameter of vehicle')
 			return None
@@ -57,8 +59,9 @@ class BoustrophedonPattern(ConstraintLayout):
 		return constraints
 
 class HorizontalBoustrophedonPattern(ConstraintLayout):
+	""" Deprecated: Use OrientedBoustrophedonPattern Instead """
 
-	def __init__(self, sensor_radius, vehicle_radius, **unknown_options):
+	def __init__(self, vehicle_radius, sensor_radius, **unknown_options):
 		# TODO Add orientation support
 		self._sensor_radius = sensor_radius
 		self._vehicle_radius = vehicle_radius
@@ -68,6 +71,7 @@ class HorizontalBoustrophedonPattern(ConstraintLayout):
 		x_min, y_min, x_max, y_max = area.bounds
 		
 		area_width = y_max - y_min
+		print(f"area width: {area_width}")
 
 		if area_width < 2*self._vehicle_radius:
 			print('Error: Cell width is smaller than diameter of vehicle')
@@ -109,12 +113,128 @@ class HorizontalBoustrophedonPattern(ConstraintLayout):
 
 		return constraints
 
+class OrientedBoustrophedonPattern(ConstraintLayout):
+
+	def __init__(self, vehicle_radius, sensor_radius, sweep_direction, boundary_offset=None, **unknown_options):
+		# TODO Add orientation support
+		self._vehicle_radius = vehicle_radius
+		self._sensor_radius = sensor_radius
+		self._sweep_direction  = np.array(sweep_direction) / np.linalg.norm(np.array(sweep_direction))
+		if boundary_offset:
+			if boundary_offset >= self._vehicle_radius:
+				self._boundary_offset = boundary_offset
+			else:
+				print(f"Warning: Desired boundary offset {boundary_offset} is less than vehicle radius {vehicle_radius}. Setting offset to vehicle radius.")
+				self._boundary_offset = vehicle_radius
+		else:
+			print('No boundary offset specified, setting to max of vehicle and sensor radii.')
+			self._boundary_offset = max(sensor_radius, vehicle_radius)
+
+	@classmethod
+	def from_sweep_orientation(cls, sensor_radius, vehicle_radius, sweep_orientation, **other_options):
+		sweep_direction = (-sweep_orientation[1], sweep_orientation[0])
+
+		return cls(sensor_radius, vehicle_radius, sweep_direction, **other_options)
+
+	def layout_constraints(self, area, compute_offset=True, **unknown_options):
+		offset = self._boundary_offset
+
+		if compute_offset:
+			# Compute true min (while still ensuring coverage) boundary offset from corners of area
+			# based on interior angles of polygon. No less than vehicle radius
+			min_angle = min(area.interior_angles.values())
+			min_offset = self._boundary_offset * np.sin(np.radians(min_angle/2.))
+
+			offset = max(self._vehicle_radius, min_offset)
+
+		# Compute direction vector of sweep line from perpendicular unit sweep direction vector
+		sweep_line_direction = np.array([-self._sweep_direction[1], self._sweep_direction[0]])
+
+		# Project area vertices onto sweep line vector to determine required extents of sweep line
+		area_verts_scalar_proj = [np.dot(np.array(vert), sweep_line_direction) for vert in area.vertices]
+		sweep_line_min = min(area_verts_scalar_proj) * sweep_line_direction
+		sweep_line_max = max(area_verts_scalar_proj) * sweep_line_direction
+
+		# Offset the area according to offset
+		offset_area = area.polygon.buffer(-offset, join_style=2)
+
+		# Project offset area vertices onto sweep direction vector to get coverage area width and sweep line start point
+		offset_verts = list(offset_area.exterior.coords)[:-1]
+		offset_verts_scalar_proj = [np.dot(np.array(vert), self._sweep_direction) for vert in offset_verts]
+		offset_area_min = min(offset_verts_scalar_proj)
+		offset_area_max = max(offset_verts_scalar_proj)
+		offset_area_width = offset_area_max - offset_area_min
+
+		""" 
+		Because we are using offset width here, these checks wont work as intended for all cases
+		e.g. if offset_area_width is less than 2* vehicle_radius, the vehicle can still fit in 
+		the are because we've already offset the polygon by a minimum of the vehicle radius
+
+		if offset_area_width < 2*self._vehicle_radius:
+			print('Error: Cell width is smaller than diameter of vehicle')
+			return None
+		elif area_width < 2*self._sensor_radius:
+			center_axis_y = y_min + area_width/2
+			coords = [(x_min+self._vehicle_radius, center_axis_y), (x_max-self._vehicle_radius, center_axis_y)]
+			return [OpenConstraint(coords)]
+
+		"""
+
+		# Instantiate array to hold constraints
+		constraints = []
+
+		# Compute the number of cells in the coverage area (regions between constraints)
+		num_cells = np.ceil(offset_area_width / (2*self._sensor_radius)).astype(int)
+		transect_width = np.around(offset_area_width / num_cells, decimals=5)
+
+		sweep_line_coords = np.array([sweep_line_min, sweep_line_max])
+		current_sweep_pos = offset_area_min
+		sweep_line_coords += (current_sweep_pos * self._sweep_direction)
+
+		line_coords = [tuple(pt) for pt in sweep_line_coords]
+		sweep_line = shapely.geometry.LineString(line_coords)
+
+		# Define delta to increment/decrement sweep line position by when searching
+		# for intersections at edges of coverage area
+		delta = 0.000001
+
+		#while current_sweep_pos <= offset_area_max:
+		# Want to have one more constraint than cells
+		while len(constraints) <= num_cells:
+			if offset_area.intersects(sweep_line):
+				intersection = offset_area.intersection(sweep_line)
+				
+				intersection_coords = list(intersection.coords)
+
+				constraints.append(OpenConstraint(intersection_coords))
+				current_sweep_pos += transect_width
+				sweep_line_coords += (transect_width * self._sweep_direction)
+				
+				line_coords = [tuple(pt) for pt in sweep_line_coords]
+				sweep_line = shapely.geometry.LineString(line_coords)
+
+			elif len(constraints) == 0: 
+				# Line doesn't interesect polygon and no constraints have been found yet
+				# Advancing slightly and trying again
+				current_sweep_pos += delta
+				sweep_line_coords += (delta * self._sweep_direction)
+				line_coords = [tuple(pt) for pt in sweep_line_coords]
+				sweep_line = shapely.geometry.LineString(line_coords)
+			else:
+				# Line doesn't intersect polygon and we've previously found intersections
+				# Probably advanced beyond edge of polygon, retreat sweep line and try again
+				current_sweep_pos -= delta
+				sweep_line_coords -= (delta * self._sweep_direction)
+				line_coords = [tuple(pt) for pt in sweep_line_coords]
+				sweep_line = shapely.geometry.LineString(line_coords)
+
+		return constraints
 
 class SpiralPattern(ConstraintLayout):
 
-	def __init__(self, sensor_radius, vehicle_radius, **unknown_options):
-		self._sensor_radius = sensor_radius
+	def __init__(self, vehicle_radius, sensor_radius, **unknown_options):
 		self._vehicle_radius = vehicle_radius
+		self._sensor_radius = sensor_radius
 
 	def layout_constraints(self, area, **unknown_options):
 		offset_polygon = area.polygon.buffer(-self._vehicle_radius, join_style=2)

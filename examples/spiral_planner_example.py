@@ -9,7 +9,7 @@ vehicle_radius = 0.5
 
 domain = rp.areas.Domain.from_box_corners((0,0), (10,10))
 
-planner = cb_cpp.planners.ConstraintBasedSpiral(sensor_radius, vehicle_radius)
+planner = cb_cpp.planners.ConstraintBasedSpiral(vehicle_radius, sensor_radius)
 path = planner.plan_coverage_path(domain, ingress_point)
 
 print(path.length)

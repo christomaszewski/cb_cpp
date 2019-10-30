@@ -10,6 +10,8 @@ robot-primitives = {editable = true,git = "https://github.com/christomaszewski/r
 numpy = "*"
 shapely = "*"
 sortedcontainers = "*"
+utm = "*"
+matplotlib = "*"
 
 [requires]
 python_version = "3.6"

@@ -58,6 +58,9 @@ class OpenConstraint(BasicConstraint):
 		
 		self._endpoints = (first, last)
 
+	def __repr__(self):
+		return str(self._coord_list)
+
 	def get_coord_list(self, ingress_point=None, **unknown_parameters):
 		# If direction is constrained
 		if 'direction' in self._constrained_parameters:

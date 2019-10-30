@@ -13,6 +13,7 @@ class GreedySequencer(ConstraintSequencer):
 		ingress_point = None
 		ingress_point_index = None
 		if start_point is None:
+			print('No start point specified, choosing first constraint in list')
 			# No start_point specified so take first ingress point of first constraint
 			starting_constraint = constraints[0]
 			ingress_point = starting_constraint.ingress_points[0]

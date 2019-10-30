@@ -24,7 +24,6 @@ class SimpleLinker(ConstraintLinker):
 					continue
 				else:
 					path_constraints[param].extend(param_value)
-
 		final_path = rp.paths.ConstrainedPath(coords, **path_constraints)
 
 		return final_path

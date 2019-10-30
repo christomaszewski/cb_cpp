@@ -14,7 +14,7 @@ domain = rp.areas.Domain.from_box_corners((0,0), (domain_width, domain_height))
 #flow_field = rp.fields.VectorField.from_channel_flow_model(channel_width=domain_width, max_velocity=max_flow_speed)
 flow_field = rp.fields.VectorField.from_channel_flow_with_pylon(channel_width=domain_width, max_velocity=max_flow_speed, pylon_bounds=(domain_width/2. - 2.5, domain_width/2. + 2.5))
 
-planner = cb_cpp.planners.EnergyEfficientBoustrophedon(sensor_radius, vehicle_radius, flow_field)
+planner = cb_cpp.planners.EnergyEfficientBoustrophedon(vehicle_radius, sensor_radius, flow_field)
 
 num_iterations = 30
 path_lengths = set()
