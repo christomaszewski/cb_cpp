@@ -131,8 +131,8 @@ class OrientedBoustrophedonPattern(ConstraintLayout):
 			self._boundary_offset = max(sensor_radius, vehicle_radius)
 
 	@classmethod
-	def from_sweep_orientation(cls, sensor_radius, vehicle_radius, sweep_orientation, **other_options):
-		sweep_direction = (-sweep_orientation[1], sweep_orientation[0])
+	def from_transect_orientation(cls, sensor_radius, vehicle_radius, transect_orientation, **other_options):
+		sweep_direction = (-transect_orientation[1], transect_orientation[0])
 
 		return cls(sensor_radius, vehicle_radius, sweep_direction, **other_options)
 
@@ -140,12 +140,12 @@ class OrientedBoustrophedonPattern(ConstraintLayout):
 		offset = self._boundary_offset
 
 		if compute_offset:
-			# Compute true min (while still ensuring coverage) boundary offset from corners of area
+			# Compute true max (while still ensuring coverage) boundary offset from corners of area
 			# based on interior angles of polygon. No less than vehicle radius
 			min_angle = min(area.interior_angles.values())
-			min_offset = self._boundary_offset * np.sin(np.radians(min_angle/2.))
+			max_offset = self._boundary_offset * np.sin(np.radians(min_angle/2.))
 
-			offset = max(self._vehicle_radius, min_offset)
+			offset = max(self._vehicle_radius, max_offset)
 
 		# Compute direction vector of sweep line from perpendicular unit sweep direction vector
 		sweep_line_direction = np.array([-self._sweep_direction[1], self._sweep_direction[0]])
@@ -232,16 +232,42 @@ class OrientedBoustrophedonPattern(ConstraintLayout):
 
 class SpiralPattern(ConstraintLayout):
 
-	def __init__(self, vehicle_radius, sensor_radius, **unknown_options):
+	def __init__(self, vehicle_radius, sensor_radius, boundary_offset=None, **unknown_options):
 		self._vehicle_radius = vehicle_radius
 		self._sensor_radius = sensor_radius
+		if boundary_offset:
+			if boundary_offset >= self._vehicle_radius:
+				self._boundary_offset = boundary_offset
+			else:
+				print(f"Warning: Desired boundary offset {boundary_offset} is less than vehicle radius {vehicle_radius}. Setting offset to vehicle radius.")
+				self._boundary_offset = vehicle_radius
+		else:
+			print('No boundary offset specified, setting to max of vehicle and sensor radii.')
+			self._boundary_offset = max(sensor_radius, vehicle_radius)
 
-	def layout_constraints(self, area, **unknown_options):
-		offset_polygon = area.polygon.buffer(-self._vehicle_radius, join_style=2)
+	def layout_constraints(self, area, compute_offset=True, **unknown_options):
+		offset = self._boundary_offset
+
+		if compute_offset:
+			# Compute true max (while still ensuring coverage) boundary offset from corners of area
+			# based on interior angles of polygon. No less than vehicle radius
+			min_angle = min(area.interior_angles.values())
+			max_offset = self._boundary_offset * np.sin(np.radians(min_angle/2.))
+
+			offset = max(self._vehicle_radius, max_offset)
+
+		offset_polygon = area.polygon.buffer(-offset, join_style=2)
 		constraints = []
 
 		while offset_polygon.exterior:
+			# Create closed constraint from coords of current offset polygon
 			constraints.append(ClosedConstraint(offset_polygon.exterior.coords[:-1]))
-			offset_polygon = offset_polygon.buffer(-2.*self._vehicle_radius, join_style=2)
+			
+			# Compute the max offset for the next polygon that still ensures complete coverage
+			min_angle = min(area.interior_angles.values())
+			max_offset = 2 * self._sensor_radius * np.sin(np.radians(min_angle/2.))			
+			offset = max(self._vehicle_radius, max_offset)
+
+			offset_polygon = offset_polygon.buffer(-offset, join_style=2)
 
 		return constraints
