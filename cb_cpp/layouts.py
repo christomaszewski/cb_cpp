@@ -162,7 +162,9 @@ class OrientedBoustrophedonPattern(ConstraintLayout):
 		offset_verts = list(offset_area.exterior.coords)[:-1]
 		offset_verts_scalar_proj = [np.dot(np.array(vert), self._sweep_direction) for vert in offset_verts]
 		offset_area_min = min(offset_verts_scalar_proj)
+		start_point_index = np.argmin(offset_verts_scalar_proj)
 		offset_area_max = max(offset_verts_scalar_proj)
+		end_point_index = np.argmax(offset_verts_scalar_proj)
 		offset_area_width = offset_area_max - offset_area_min
 
 		""" 
@@ -201,7 +203,68 @@ class OrientedBoustrophedonPattern(ConstraintLayout):
 		#while current_sweep_pos <= offset_area_max:
 		# Want to have one more constraint than cells
 		while len(constraints) <= num_cells:
-			if offset_area.intersects(sweep_line):
+			if len(constraints) == 0:
+				# Computing first constraint. Since the intersection here will
+				# typically be a single point, we find the side of the offset polygon
+				# that is most aligned with the transect orientation, i.e. least 
+				# aligned with sweep direction, and use that as the first constraint
+				corner = offset_verts[start_point_index]
+				pt1 = offset_verts[(start_point_index-1)%len(offset_verts)]
+				pt2 = offset_verts[(start_point_index+1)%len(offset_verts)]
+				side_vec1 = np.array(pt1) - np.array(corner)
+				side_vec2 = np.array(pt2) - np.array(corner)
+				side_proj1 = np.dot(sweep_line_direction, side_vec1)
+				side_proj2 = np.dot(sweep_line_direction, side_vec2)
+
+				if abs(side_proj1) > abs(side_proj2):
+					if side_proj1 < 0:
+						constraints.append(OpenConstraint([pt1, corner]))
+					else:
+						constraints.append(OpenConstraint([corner, pt1]))
+				else:
+					if side_proj2 < 0:
+						constraints.append(OpenConstraint([pt2, corner]))
+					else:
+						constraints.append(OpenConstraint([corner, pt2]))
+
+				current_sweep_pos += transect_width
+				sweep_line_coords += (transect_width * self._sweep_direction)
+				
+				line_coords = [tuple(pt) for pt in sweep_line_coords]
+				sweep_line = shapely.geometry.LineString(line_coords)
+
+			elif len(constraints) == num_cells:
+				# Only last constraint remains to be computed. Since the intersection
+				# here will typically be a single point, we repeat the same process as
+				# we used to compute the first constraint, i.e. using a side of the
+				# offset polygon which is oriented closest to the transect orientation
+				corner = offset_verts[end_point_index]
+				pt1 = offset_verts[(end_point_index-1)%len(offset_verts)]
+				pt2 = offset_verts[(end_point_index+1)%len(offset_verts)]
+				side_vec1 = np.array(pt1) - np.array(corner)
+				side_vec2 = np.array(pt2) - np.array(corner)
+				side_proj1 = np.dot(sweep_line_direction, side_vec1)
+				side_proj2 = np.dot(sweep_line_direction, side_vec2)
+
+				if abs(side_proj1) > abs(side_proj2):
+					if side_proj1 < 0:
+						constraints.append(OpenConstraint([pt1, corner]))
+					else:
+						constraints.append(OpenConstraint([corner, pt1]))
+				else:
+					if side_proj2 < 0:
+						constraints.append(OpenConstraint([pt2, corner]))
+					else:
+						constraints.append(OpenConstraint([corner, pt2]))
+
+				# Probably don't need to do the following because we have the last constraint
+				current_sweep_pos += transect_width
+				sweep_line_coords += (transect_width * self._sweep_direction)
+				
+				line_coords = [tuple(pt) for pt in sweep_line_coords]
+				sweep_line = shapely.geometry.LineString(line_coords)
+
+			elif offset_area.intersects(sweep_line):
 				intersection = offset_area.intersection(sweep_line)
 				
 				intersection_coords = list(intersection.coords)
@@ -213,6 +276,7 @@ class OrientedBoustrophedonPattern(ConstraintLayout):
 				line_coords = [tuple(pt) for pt in sweep_line_coords]
 				sweep_line = shapely.geometry.LineString(line_coords)
 
+			""" Probably don't need this now since we compute the first and last constraints
 			elif len(constraints) == 0: 
 				# Line doesn't interesect polygon and no constraints have been found yet
 				# Advancing slightly and trying again
@@ -227,7 +291,7 @@ class OrientedBoustrophedonPattern(ConstraintLayout):
 				sweep_line_coords -= (delta * self._sweep_direction)
 				line_coords = [tuple(pt) for pt in sweep_line_coords]
 				sweep_line = shapely.geometry.LineString(line_coords)
-
+			"""
 		return constraints
 
 class SpiralPattern(ConstraintLayout):

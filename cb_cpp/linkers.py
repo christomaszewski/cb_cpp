@@ -6,8 +6,11 @@ from .base import ConstraintLinker
 class SimpleLinker(ConstraintLinker):
 	""" Simply connects each constraint egress to the following constraint's ingress point """
 
-	def link_constraints(self, constraint_chain, offset=0.0):
+	def link_constraints(self, constraint_chain, ingress_point=None, offset=0.0):
 		coords = []
+		if ingress_point is not None:
+			coords.append(tuple(ingress_point))
+
 		path_constraints = collections.defaultdict(list)
 
 		for c in constraint_chain:

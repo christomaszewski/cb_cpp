@@ -38,7 +38,8 @@ class ConstraintBasedBoustrophedon(object):
 		self._vehicle_radius = vehicle_radius
 		self._sensor_radius = sensor_radius if sensor_radius else vehicle_radius
 		self._transect_orientation = transect_orientation
-		self._heuristic = rp.heuristics.EuclideanDistance()
+		#self._heuristic = rp.heuristics.EuclideanDistance()
+		self._heuristic = rp.heuristics.DirectedDistance.perpendicular(transect_orientation)
 		self._layout = layouts.OrientedBoustrophedonPattern.from_transect_orientation(vehicle_radius, sensor_radius, transect_orientation)
 		self._refinements = [refinements.AlternatingDirections()]
 		self._sequencer = sequencers.GreedySequencer(self._heuristic)
@@ -51,6 +52,20 @@ class ConstraintBasedBoustrophedon(object):
 	@classmethod
 	def vertical(cls, vehicle_radius, sensor_radius=None, **options):
 		return cls(vehicle_radius, sensor_radius, transect_orientation=(0,1), **options)
+
+	@classmethod
+	def parallel_to_line(cls, vehicle_radius, sensor_radius, line):
+		# Transect orientation should be parallel to line so we compute the direction of the line
+		line_direction = (line[1][0] - line[0][0], line[1][1] - line[0][1])
+
+		return cls(vehicle_radius, sensor_radius, line_direction)
+
+	@classmethod
+	def perpendicular_to_line(cls, vehicle_radius, sensor_radius, line):
+		# Transect orientation should be perpendicular to line so compute normal vector to line
+		normal_vector = (line[0][1] - line[1][1], line[1][0] - line[0][0])
+
+		return cls(vehicle_radius, sensor_radius, normal_vector)
 
 	@classmethod
 	def parallel_to_side(cls, vehicle_radius, sensor_radius, side):
@@ -71,7 +86,7 @@ class ConstraintBasedBoustrophedon(object):
 		for r in self._refinements:
 			r.refine_constraints(constraints, area_ingress_point=area_ingress_point)
 		constraint_chain = self._sequencer.sequence_constraints(constraints, area_ingress_point)
-		path = self._linker.link_constraints(constraint_chain)
+		path = self._linker.link_constraints(constraint_chain, area_ingress_point)
 
 		return path
 
@@ -119,17 +134,19 @@ class DriftingBoustrophedon(object):
 
 		return path
 
-
+# Maybe we can do an even simpler EE boustrophedon which just needs a flow direction? Maybe this should be drifting?
 class EnergyEfficientBoustrophedon(object):
 
-	def __init__(self, vehicle_radius, sensor_radius, flow_field, **unknown_options):
+	def __init__(self, vehicle_radius, sensor_radius, flow_field, axis, **unknown_options):
 		self._vehicle_radius = vehicle_radius
 		self._sensor_radius = sensor_radius
 		self._flow_field = flow_field
+		self._transect_orientation = (axis[1][0] - axis[0][0], axis[1][1] - axis[0][1])
 		self._sequencing_heuristic = rp.heuristics.EuclideanDistance()
 		#rp.heuristics.OpposingFlowEnergy(flow_field)
 
-		self._layout = layouts.BoustrophedonPattern(vehicle_radius, sensor_radius)
+		#self._layout = layouts.BoustrophedonPattern(vehicle_radius, sensor_radius)
+		self._layout = layouts.OrientedBoustrophedonPattern.from_transect_orientation(vehicle_radius, sensor_radius, self._transect_orientation)
 		self._refinements = [refinements.MaximizeFlowAlignment(flow_field)]
 		self._sequencer = sequencers.MatchingSequencer(self._sequencing_heuristic)
 		self._linker = linkers.SimpleLinker()
@@ -139,10 +156,46 @@ class EnergyEfficientBoustrophedon(object):
 		for r in self._refinements:
 			r.refine_constraints(constraints, area_ingress_point=area_ingress_point)
 		constraint_chain = self._sequencer.sequence_constraints(constraints, area_ingress_point)
-		path = self._linker.link_constraints(constraint_chain)
+		path = self._linker.link_constraints(constraint_chain, area_ingress_point)
 
 		return path
-		
+
+# Tries all possible sequences of constraints, links them to ingress and egress, then computes a total path length and returns the shortest one
+class BruteForceEnergyEfficientBoustrophedon(object):
+
+	def __init__(self, vehicle_radius, sensor_radius, flow_field, axis, **unknown_options):
+		self._vehicle_radius = vehicle_radius
+		self._sensor_radius = sensor_radius
+		self._flow_field = flow_field
+		self._transect_orientation = (axis[1][0] - axis[0][0], axis[1][1] - axis[0][1])
+		self._sequencing_heuristic = rp.heuristics.EuclideanDistance()
+		#rp.heuristics.OpposingFlowEnergy(flow_field)
+
+		#self._layout = layouts.BoustrophedonPattern(vehicle_radius, sensor_radius)
+		self._layout = layouts.OrientedBoustrophedonPattern.from_transect_orientation(vehicle_radius, sensor_radius, self._transect_orientation)
+		self._refinements = [refinements.MaximizeFlowAlignment(flow_field)]
+		self._sequencer = sequencers.BruteForceMatchingSequencer()
+		self._linker = linkers.SimpleLinker()
+
+	def plan_coverage_path(self, area, area_ingress_point=None, area_egress_point=None):
+		constraints = self._layout.layout_constraints(area)
+		for r in self._refinements:
+			r.refine_constraints(constraints, area_ingress_point=area_ingress_point)
+		constraint_chains = self._sequencer.sequence_constraints(constraints)
+		#print(f"Found {len(constraint_chains)} possible paths. Selecting min length path...")
+		min_length = None
+		min_path = None
+		for chain in constraint_chains:
+			#chain = list(next(it) for it in c)
+			path = self._linker.link_constraints(chain, ingress_point=area_ingress_point)
+			path.add_point(area_egress_point)
+			#print(f"Found path with path length {path.length}, current best path length is {min_length}")
+			if min_length is None or path.length < min_length:
+				print('Selecting new path.')
+				min_path = path
+				min_length = path.length
+
+		return min_path
 
 class EnergyEfficientDrift(object):
 

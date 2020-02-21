@@ -107,8 +107,8 @@ class MaximizeFlowAlignment(ConstraintRefinement):
 
 		sorted_constraints = SortedList(constraint_idx, key=lambda i:constraint_costs[i])
 
-		split_index = np.ceil(len(sorted_constraints) / 2).astype(int)
-		
+		split_index = np.ceil(len(sorted_constraints) / 2.).astype(int)
+		print(split_index, len(sorted_constraints[split_index:]), len(sorted_constraints[:split_index]))
 		# constrain the direction of constraints to lie with the flow where fastest
 		# and against the flow where the flow is slowest
 		for index in sorted_constraints[split_index:]:
