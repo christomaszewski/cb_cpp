@@ -99,7 +99,7 @@ class MatchingSequencer(ConstraintSequencer):
 		if start_point is None:
 			# No start_point specified, chose the partition with more constraints if possible
 			partition_key = max(partition_sizes, key=partition_sizes.get)
-			starting_constraint = constraint_partitions[partition_key][0]
+			starting_constraint = next(iter(constraint_partitions[partition_key]))
 			ingress_point = starting_constraint.ingress_points[0]
 			ingress_point_index = 0
 		else:
@@ -232,3 +232,5 @@ class BruteForceMatchingSequencer(ConstraintSequencer):
 					#constraint_chains.append(cycle)
 					
 		#return constraint_chains
+
+	

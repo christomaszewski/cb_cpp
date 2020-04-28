@@ -1,5 +1,7 @@
 import robot_primitives as rp
 import utm
+import sys
+import numpy as np
 
 from context import cb_cpp
 
@@ -45,58 +47,72 @@ max_velocity = 0.5
 # 3 transect short
 #boundary_points = [(35.549332, -79.024603), (35.550037, -79.025490), (35.550199, -79.025197), (35.549529, -79.024404)]
 # 4 transect extended
-boundary_points = [(35.549332, -79.024603), (35.550136, -79.025583), (35.550300, -79.025311), (35.549529, -79.024404)]
-center_axis_coords = [(35.549348, -79.024498), (35.550153, -79.025443)]
+#boundary_points = [(35.549332, -79.024603), (35.550136, -79.025583), (35.550300, -79.025311), (35.549529, -79.024404)]
+#center_axis_coords = [(35.549348, -79.024498), (35.550153, -79.025443)]
 ingress_point = (35.550242, -79.025139)
 egress_point = (35.550242, -79.025139)
 
+utm_transform = lambda pt: utm.from_latlon(pt[0], pt[1])[:2]
+
+domain_filename = sys.argv[1]
+domain_path = rp.paths.ConstrainedPath.from_file(domain_filename)
+domain_path.transform(utm_transform)
+domain = rp.areas.Domain.from_vertex_list(domain_path.coord_list)
+
+center_axis_top = np.mean(np.array(domain_path.coord_list[1:3]), axis=0)
+center_axis_bottom = np.mean([np.array(domain_path.coord_list[0]), np.array(domain_path.coord_list[3])], axis=0)
+
+flow_field = rp.fields.BoundedVectorField.extended_channel_flow_model(domain, [center_axis_top, center_axis_bottom], max_velocity, min_velocity=0.05, undefined_value=(float('nan'),float('nan')))
+
+
 
 # Convert domain params to utm coords
-boundary_utm = [tuple(utm.from_latlon(*pt)[:2]) for pt in boundary_points]
-center_axis_utm = [tuple(utm.from_latlon(*pt)[:2]) for pt in center_axis_coords]
+#boundary_utm = [tuple(utm.from_latlon(*pt)[:2]) for pt in boundary_points]
+center_axis_utm = [center_axis_top, center_axis_bottom]
 ingress_utm = tuple(utm.from_latlon(*ingress_point)[:2])
 egress_utm = tuple(utm.from_latlon(*egress_point)[:2])
 
 # Initialize domain and flow field 
-domain = rp.areas.Domain.from_vertex_list(boundary_utm)
+#domain = rp.areas.Domain.from_vertex_list(boundary_utm)
 #flow_field = rp.fields.BoundedVectorField.channel_flow_model(domain, center_axis_utm, max_velocity, undefined_value=(float('nan'),float('nan')))
-flow_field  = rp.fields.BoundedVectorField.linear_flow_model(domain, center_axis_utm, 0.0, max_velocity, undefined_value=(float('nan'),float('nan')))
+#flow_field  = rp.fields.BoundedVectorField.linear_flow_model(domain, center_axis_utm, 0.0, max_velocity, undefined_value=(float('nan'),float('nan')))
 
 # Initialize all planners
 parallel_planner = cb_cpp.planners.ConstraintBasedBoustrophedon.parallel_to_line(vehicle_radius, sensor_radius, center_axis_utm)
 ee_planner = cb_cpp.planners.EnergyEfficientBoustrophedon(vehicle_radius, sensor_radius, flow_field, center_axis_utm)
 bf_ee_planner = cb_cpp.planners.BruteForceEnergyEfficientBoustrophedon(vehicle_radius, sensor_radius, flow_field, center_axis_utm)
 
-# Plan all paths
-print('Planning Parallel Path...')
-parallel_path = parallel_planner.plan_coverage_path(domain, ingress_utm)
-print('Planning BF EE Path...')
-bf_ee_path = bf_ee_planner.plan_coverage_path(domain, ingress_utm, egress_utm)
-print('Planning EE Path...')
-ee_path = ee_planner.plan_coverage_path(domain, ingress_utm)
-print('Done Planning.')
-
-# Add egress point to end of path
-parallel_path.add_point(egress_utm)
-ee_path.add_point(egress_utm)
-
-print(f"Parallel Path length: {parallel_path.length}")
-print(f"BF EE Path length: {bf_ee_path.length}")
-print(f"EE Path length: {ee_path.length}")
-
 # Transform paths to lat long coords
 #f = lambda pt: utm.to_latlon(pt[0], pt[1], 19, 'T')
 f = lambda pt: utm.to_latlon(pt[0], pt[1], 17, 'S')
-parallel_path.transform(f)
-ee_path.transform(f)
-bf_ee_path.transform(f)
 
-domain_prefix = 'avent'
+domain_prefix = 'avent_full'
+
+# Plan all paths
+print('Planning Parallel Path...')
+parallel_path = parallel_planner.plan_coverage_path(domain, ingress_utm)
+parallel_path.add_point(egress_utm)
+print(f"Parallel Path length: {parallel_path.length}")
+parallel_path.transform(f)
+parallel_path.save(f"{domain_prefix}_parallel_path.json")
+
+print('Planning EE Path...')
+ee_path = ee_planner.plan_coverage_path(domain, ingress_utm)
+ee_path.add_point(egress_utm)
+print(f"EE Path length: {ee_path.length}")
+ee_path.transform(f)
+ee_path.save(f"{domain_prefix}_ee_path.json")
+
+print('Planning BF EE Path...')
+bf_ee_path = bf_ee_planner.plan_coverage_path(domain, ingress_utm, egress_utm)
+print(f"BF EE Path length: {bf_ee_path.length}")
+bf_ee_path.transform(f)
+bf_ee_path.save(f"{domain_prefix}_bf_ee_path.json")
+
+
+
 
 # Save all paths to file
-parallel_path.save(f"{domain_prefix}_parallel_path.json")
-ee_path.save(f"{domain_prefix}_ee_path.json")
-bf_ee_path.save(f"{domain_prefix}_bf_ee_path.json")
 
 #boundary_points = [(42.406071, -71.242046), (42.406071, -71.242608), (42.406347, -71.242608), (42.406347, -71.242046)]
 #boundary_utm = [tuple(utm.from_latlon(*pt)[:2]) for pt in boundary_points]

@@ -12,6 +12,7 @@ shapely = "*"
 sortedcontainers = "*"
 utm = "*"
 matplotlib = "*"
+networkx = "*"
 
 [requires]
 python_version = "3.6"

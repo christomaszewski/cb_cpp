@@ -84,9 +84,10 @@ class DownstreamDrift(ConstraintRefinement):
 
 class MaximizeFlowAlignment(ConstraintRefinement):
 
-	def __init__(self, flow_field):
+	def __init__(self, flow_field, nominal_speed=0.5, delta=0.01):
 		self._flow_field = flow_field
-		self._energy_heuristic = rp.heuristics.OpposingFlowEnergy(flow_field)
+		self._nominal_speed = nominal_speed
+		self._energy_heuristic = rp.heuristics.OpposingFlowEnergy(flow_field, delta)
 
 	def refine_constraints(self, constraints, default_thrust=(0.,1.), **unknown_options):
 		constraint_costs = []
@@ -94,14 +95,17 @@ class MaximizeFlowAlignment(ConstraintRefinement):
 
 		for idx, c in enumerate(constraints):
 			# assumes all constraints have coords orders similarly
+			# probably want to check both directions or use heuristic that is agnostic to direction
 			coords = c.coord_list
-			#print('computing cost of constraint', idx)
+			print(f"Computing cost of Constraint {idx} of {len(constraints)}")
 			cost = 0.
 			for start, end in zip(coords, coords[1:]):
-				cost += self._energy_heuristic.compute_cost(start, end)
+				cost += self._energy_heuristic.compute_cost(start, end, self._nominal_speed)
 
 			constraint_costs.append(cost)
 			constraint_idx.append(idx)
+
+			print(f"Constraint {idx} has cost of {cost}")
 
 		#print(constraint_costs)
 

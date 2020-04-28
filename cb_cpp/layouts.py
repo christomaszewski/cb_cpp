@@ -335,3 +335,200 @@ class SpiralPattern(ConstraintLayout):
 			offset_polygon = offset_polygon.buffer(-offset, join_style=2)
 
 		return constraints
+
+class StreamlinePattern(ConstraintLayout):
+
+	def __init__(self, vehicle_radius, sensor_radius, boundary_offset=None, **unknown_options):
+		# TODO Add orientation support
+		self._vehicle_radius = vehicle_radius
+		self._sensor_radius = sensor_radius
+		if boundary_offset:
+			if boundary_offset >= self._vehicle_radius:
+				self._boundary_offset = boundary_offset
+			else:
+				print(f"Warning: Desired boundary offset {boundary_offset} is less than vehicle radius {vehicle_radius}. Setting offset to vehicle radius.")
+				self._boundary_offset = vehicle_radius
+		else:
+			print('No boundary offset specified, setting to max of vehicle and sensor radii.')
+			self._boundary_offset = max(sensor_radius, vehicle_radius)
+
+	def layout_constraints(self, area, compute_offset=True, bias=None, **unknown_options):
+		offset = self._boundary_offset
+
+		if compute_offset:
+			# Compute true max (while still ensuring coverage) boundary offset from corners of area
+			# based on interior angles of polygon. No less than vehicle radius
+			min_angle = min(area.interior_angles.values())
+			max_offset = self._boundary_offset * np.sin(np.radians(min_angle/2.))
+
+			offset = max(self._vehicle_radius, max_offset)
+
+		# # Compute direction vector of sweep line from perpendicular unit sweep direction vector
+		# sweep_line_direction = np.array([-self._sweep_direction[1], self._sweep_direction[0]])
+
+		# # Project area vertices onto sweep line vector to determine required extents of sweep line
+		# area_verts_scalar_proj = [np.dot(np.array(vert), sweep_line_direction) for vert in area.vertices]
+		# sweep_line_min = min(area_verts_scalar_proj) * sweep_line_direction
+		# sweep_line_max = max(area_verts_scalar_proj) * sweep_line_direction
+
+		# # Offset the area according to offset
+		offset_area = area.polygon.buffer(-offset, join_style=2)
+
+		mid_idx = int(len(offset_area.exterior.coords)/2)
+		bank_1 = [np.array(pt) for pt in offset_area.exterior.coords[:mid_idx]]
+		bank_2 = [np.array(pt) for pt in reversed(offset_area.exterior.coords[mid_idx:-1])]
+		print(len(area.polygon.exterior.coords), len(offset_area.exterior.coords), len(bank_1), len(bank_2))
+		# print(len(offset_area.exterior.coords), mid_idx)
+		# print(offset_area.exterior.coords[:3], offset_area.exterior.coords[mid_idx], offset_area.exterior.coords[-3:])
+		# print(bank_1[-3:], bank_2[-3:], len(bank_1), len(bank_2))
+
+		cross_section_lengths = [np.linalg.norm(pt2 - pt1) for pt1, pt2 in zip(bank_1, bank_2)]
+
+		max_width = max(cross_section_lengths)
+		min_width = min(cross_section_lengths)
+
+		num_transects = int(np.ceil(max_width/(2*self._sensor_radius) - 1))
+		print(f"Offset: {offset}")
+		print(f"Max cross section width: {max_width}, Num Transects: {num_transects+2}")
+		print(f"Min cross section width: {min(cross_section_lengths)}")
+		print(offset_area.exterior.coords[:3], offset_area.exterior.coords[-3:])
+		print(bank_1[:3], bank_1[-3:])
+		print(bank_2[:3], bank_2[-3:])
+
+		num_full_transects = int(min_width/(2*self._sensor_radius))
+
+		transect_coords = [[] for i in range(num_transects+2)]
+		for cross_section in zip(bank_1, bank_2):
+			cross_vec = cross_section[1]-cross_section[0]
+			length = np.linalg.norm(cross_vec)
+			direction = cross_vec / length
+
+			if bias == 'centerline':
+				# Bias towards centerline
+				transect_width = self._sensor_radius * 2.
+				half_num_full_transects = int(length / (2*transect_width))
+				max_full_transects = int(length / transect_width)
+
+				print(f"Cross Section width: {length}, Max Transect width: {transect_width}, Max Full Transects: {max_full_transects}, {half_num_full_transects}")
+				last_idx = 0
+				for i in range(half_num_full_transects+1):
+					transect_coords[i].append(tuple(cross_section[1] - i*transect_width*direction))
+					last_idx = i
+
+				print(f"Added {last_idx+1} transects before centerline")
+				num_remaining_transects = num_transects - max_full_transects
+				print(f"Remaining Transects: {num_remaining_transects}")
+
+				last_coord = np.array(transect_coords[last_idx][-1])
+				# Add some centerline transects
+				for i in range(int(np.ceil(num_remaining_transects/2.))):
+					print('Adding centerline transect')
+					last_idx += 1
+					transect_coords[last_idx].append(tuple(cross_section[1] - length / 2. * direction))
+					last_coord = np.array(transect_coords[last_idx][-1])
+
+				print(f"Adding {half_num_full_transects} transects after centerline")
+				for i in range(half_num_full_transects):
+					last_idx += 1
+					transect_coords[last_idx].append(tuple(cross_section[0] + (half_num_full_transects - i)*transect_width*direction))
+
+				# Collapse remaining transects to inner bank
+				while last_idx < num_transects + 1:
+					print('Adding bank transect')
+					last_idx += 1
+					transect_coords[last_idx].append(tuple(cross_section[0]))
+
+			# if bank_bias:
+			# 	# Bias towards centerline, then towards bank
+			# 	transect_width = self._sensor_radius * 2.
+			# 	half_num_full_transects = int(length / (2*transect_width))
+			# 	max_full_transects = int(length / transect_width)
+
+			# 	print(f"Cross Section width: {length}, Max Transect width: {transect_width}, Max Full Transects: {max_full_transects}, {half_num_full_transects}")
+			# 	last_idx = 0
+			# 	for i in range(half_num_full_transects+1):
+			# 		transect_coords[i].append(tuple(cross_section[1] - i*transect_width*direction))
+			# 		last_idx = i
+
+			# 	print(f"Added {last_idx+1} transects before centerline")
+			# 	num_remaining_transects = num_transects - max_full_transects
+			# 	print(f"Remaining Transects: {num_remaining_transects}")
+
+			# 	last_coord = np.array(transect_coords[last_idx][-1])
+			# 	# Add some centerline transects
+			# 	for i in range(int(np.ceil(num_remaining_transects/2.))):
+			# 		print('Adding centerline transect')
+			# 		last_idx += 1
+			# 		transect_coords[last_idx].append(tuple(cross_section[1] - length / 2. * direction))
+			# 		last_coord = np.array(transect_coords[last_idx][-1])
+
+			# 	print(f"Adding {half_num_full_transects} transects after centerline")
+			# 	for i in range(1,half_num_full_transects+1):
+			# 		last_idx += 1
+			# 		transect_coords[last_idx].append(tuple(last_coord - i*transect_width*direction))
+
+			# 	# Collapse remaining transects to inner bank
+			# 	while last_idx < num_transects + 1:
+			# 		print('Adding bank transect')
+			# 		last_idx += 1
+			# 		transect_coords[last_idx].append(tuple(cross_section[0]))
+
+			elif bias == 'inner_bank':
+				# Bias towards inner bank and collapse redundant transects
+				transect_width = self._sensor_radius * 2.
+				max_full_transects = int(length / transect_width)
+
+				print(f"Cross Section width: {length}, Max Transect width: {transect_width}, Max Full Transects: {max_full_transects}")
+
+				for i in range(max_full_transects+1):
+					transect_coords[i].append(tuple(cross_section[1] - i*transect_width*direction))
+
+				num_remaining_transects = num_transects + 1 - max_full_transects
+
+				if num_remaining_transects > 1:
+					last_coord = cross_section[1] - max_full_transects*transect_width*direction
+					remaining_vec = last_coord - cross_section[0]
+					remaining_dist = np.linalg.norm(remaining_vec)
+
+					new_transect_width = remaining_dist / num_remaining_transects
+
+					print(f"Remaining Transects: {num_remaining_transects}, Remaining Dist: {remaining_dist}, New Transect Width: {new_transect_width}")
+					for i in range(1,num_remaining_transects):
+						#transect_coords[max_full_transects+i].append(tuple(last_coord - i*new_transect_width*direction))
+						# Collapse all partial width transects down to bank 
+						transect_coords[max_full_transects+i].append(tuple(cross_section[0]))
+				
+				transect_coords[-1].append(tuple(cross_section[0]))
+
+			# if bank_bias:
+			# 	# Todo needs to stop before going past cross section length
+			# 	transect_width = self._sensor_radius * 2.
+				
+			# 	for i in range(num_full_transects+1):
+			# 		transect_coords[i].append(tuple(cross_section[1] - i*transect_width*direction))
+
+			# 	num_remaining_transects = num_transects + 1 - num_full_transects
+
+			# 	if num_remaining_transects > 1:
+			# 		last_coord = cross_section[1] - num_full_transects*transect_width*direction
+			# 		remaining_vec = last_coord - cross_section[0]
+			# 		remaining_dist = np.linalg.norm(remaining_vec)
+
+			# 		new_transect_width = remaining_dist / num_remaining_transects
+
+			# 		print(f"Remaining Transects: {num_remaining_transects}, Remaining Dist: {remaining_dist}, New Transect Width: {new_transect_width}")
+			# 		for i in range(1,num_remaining_transects):
+			# 			transect_coords[num_full_transects+i].append(tuple(last_coord - i*new_transect_width*direction))
+				
+			# 	transect_coords[-1].append(tuple(cross_section[0]))
+
+			else:
+				transect_width = length / (num_transects+1)	
+
+				for i in range(num_transects+2):
+					transect_coords[i].append(tuple(cross_section[0] + i*transect_width*direction))
+
+
+		constraints = [OpenConstraint(coord_list) for coord_list in transect_coords]
+
+		return constraints

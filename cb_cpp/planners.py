@@ -188,7 +188,8 @@ class BruteForceEnergyEfficientBoustrophedon(object):
 		for chain in constraint_chains:
 			#chain = list(next(it) for it in c)
 			path = self._linker.link_constraints(chain, ingress_point=area_ingress_point)
-			path.add_point(area_egress_point)
+			if area_egress_point:
+				path.add_point(area_egress_point)
 			#print(f"Found path with path length {path.length}, current best path length is {min_length}")
 			if min_length is None or path.length < min_length:
 				print('Selecting new path.')
@@ -220,3 +221,77 @@ class EnergyEfficientDrift(object):
 		path = self._linker.link_constraints(constraint_chain)
 
 		return path
+
+class StreamlineBoustrophedon(object):
+
+	def __init__(self, vehicle_radius, sensor_radius, **unknown_options):
+		self._vehicle_radius = vehicle_radius
+		self._sensor_radius = sensor_radius if sensor_radius else vehicle_radius
+		self._heuristic = rp.heuristics.EuclideanDistance()
+		#self._heuristic = rp.heuristics.DirectedDistance.perpendicular(transect_orientation)
+		self._layout = layouts.StreamlinePattern(vehicle_radius, sensor_radius)
+		self._refinements = [refinements.AlternatingDirections()]
+		self._sequencer = sequencers.GreedySequencer(self._heuristic)
+		self._linker = linkers.SimpleLinker()
+
+	def plan_coverage_path(self, area, area_ingress_point=None, bias=None):
+		constraints = self._layout.layout_constraints(area, bias=bias)
+		for r in self._refinements:
+			r.refine_constraints(constraints, area_ingress_point=area_ingress_point)
+		constraint_chain = self._sequencer.sequence_constraints(constraints, area_ingress_point)
+		path = self._linker.link_constraints(constraint_chain, area_ingress_point)
+
+		return path
+
+class EEStreamlineBoustrophedon(object):
+
+	def __init__(self, vehicle_radius, sensor_radius, flow_field, **unknown_options):
+		self._vehicle_radius = vehicle_radius
+		self._sensor_radius = sensor_radius if sensor_radius else vehicle_radius
+		self._heuristic = rp.heuristics.EuclideanDistance()
+		#self._heuristic = rp.heuristics.DirectedDistance.perpendicular(transect_orientation)
+		self._layout = layouts.StreamlinePattern(vehicle_radius, sensor_radius)
+		self._refinements = [refinements.MaximizeFlowAlignment(flow_field, nominal_speed=0.65, delta=0.1)]
+		self._sequencer = sequencers.MatchingSequencer(self._heuristic)
+		self._linker = linkers.SimpleLinker()
+
+	def plan_coverage_path(self, area, area_ingress_point=None, bias=None):
+		constraints = self._layout.layout_constraints(area, bias=bias)
+		for r in self._refinements:
+			r.refine_constraints(constraints, area_ingress_point=area_ingress_point)
+		constraint_chain = self._sequencer.sequence_constraints(constraints, area_ingress_point)
+		path = self._linker.link_constraints(constraint_chain, area_ingress_point)
+
+		return path
+
+# Tries all possible sequences of constraints, then computes a total path length and returns the shortest one
+class BruteForceEEStreamlineBoustrophedon(object):
+
+	def __init__(self, vehicle_radius, sensor_radius, flow_field, **unknown_options):
+		self._vehicle_radius = vehicle_radius
+		self._sensor_radius = sensor_radius if sensor_radius else vehicle_radius
+		self._heuristic = rp.heuristics.EuclideanDistance()
+		#self._heuristic = rp.heuristics.DirectedDistance.perpendicular(transect_orientation)
+		self._layout = layouts.StreamlinePattern(vehicle_radius, sensor_radius)
+		self._refinements = [refinements.MaximizeFlowAlignment(flow_field, nominal_speed=0.65, delta=0.1)]
+		self._sequencer = sequencers.BruteForceMatchingSequencer()
+		self._linker = linkers.SimpleLinker()
+
+	def plan_coverage_path(self, area, area_ingress_point=None, area_egress_point=None, bias=None):
+		constraints = self._layout.layout_constraints(area, bias=bias)
+		for r in self._refinements:
+			r.refine_constraints(constraints, area_ingress_point=area_ingress_point)
+		constraint_chains = self._sequencer.sequence_constraints(constraints)
+		#print(f"Found {len(constraint_chains)} possible paths. Selecting min length path...")
+		min_length = None
+		min_path = None
+		for chain in constraint_chains:
+			#chain = list(next(it) for it in c)
+			path = self._linker.link_constraints(chain, ingress_point=area_ingress_point)
+			
+			if min_length is None or path.length < min_length:
+				print('Selecting new path.')
+				min_path = path
+				min_length = path.length
+
+		return min_path
