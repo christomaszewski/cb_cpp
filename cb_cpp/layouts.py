@@ -203,78 +203,44 @@ class OrientedBoustrophedonPattern(ConstraintLayout):
 		#while current_sweep_pos <= offset_area_max:
 		# Want to have one more constraint than cells
 		while len(constraints) <= num_cells:
-			if len(constraints) == 0:
-				# Computing first constraint. Since the intersection here will
-				# typically be a single point, we find the side of the offset polygon
-				# that is most aligned with the transect orientation, i.e. least 
-				# aligned with sweep direction, and use that as the first constraint
-				corner = offset_verts[start_point_index]
-				pt1 = offset_verts[(start_point_index-1)%len(offset_verts)]
-				pt2 = offset_verts[(start_point_index+1)%len(offset_verts)]
-				side_vec1 = np.array(pt1) - np.array(corner)
-				side_vec2 = np.array(pt2) - np.array(corner)
-				side_proj1 = np.dot(sweep_line_direction, side_vec1)
-				side_proj2 = np.dot(sweep_line_direction, side_vec2)
-
-				if abs(side_proj1) > abs(side_proj2):
-					if side_proj1 < 0:
-						constraints.append(OpenConstraint([pt1, corner]))
-					else:
-						constraints.append(OpenConstraint([corner, pt1]))
-				else:
-					if side_proj2 < 0:
-						constraints.append(OpenConstraint([pt2, corner]))
-					else:
-						constraints.append(OpenConstraint([corner, pt2]))
-
-				current_sweep_pos += transect_width
-				sweep_line_coords += (transect_width * self._sweep_direction)
-				
-				line_coords = [tuple(pt) for pt in sweep_line_coords]
-				sweep_line = shapely.geometry.LineString(line_coords)
-
-			elif len(constraints) == num_cells:
-				# Only last constraint remains to be computed. Since the intersection
-				# here will typically be a single point, we repeat the same process as
-				# we used to compute the first constraint, i.e. using a side of the
-				# offset polygon which is oriented closest to the transect orientation
-				corner = offset_verts[end_point_index]
-				pt1 = offset_verts[(end_point_index-1)%len(offset_verts)]
-				pt2 = offset_verts[(end_point_index+1)%len(offset_verts)]
-				side_vec1 = np.array(pt1) - np.array(corner)
-				side_vec2 = np.array(pt2) - np.array(corner)
-				side_proj1 = np.dot(sweep_line_direction, side_vec1)
-				side_proj2 = np.dot(sweep_line_direction, side_vec2)
-
-				if abs(side_proj1) > abs(side_proj2):
-					if side_proj1 < 0:
-						constraints.append(OpenConstraint([pt1, corner]))
-					else:
-						constraints.append(OpenConstraint([corner, pt1]))
-				else:
-					if side_proj2 < 0:
-						constraints.append(OpenConstraint([pt2, corner]))
-					else:
-						constraints.append(OpenConstraint([corner, pt2]))
-
-				# Probably don't need to do the following because we have the last constraint
-				current_sweep_pos += transect_width
-				sweep_line_coords += (transect_width * self._sweep_direction)
-				
-				line_coords = [tuple(pt) for pt in sweep_line_coords]
-				sweep_line = shapely.geometry.LineString(line_coords)
-
-			elif offset_area.intersects(sweep_line):
+			if offset_area.intersects(sweep_line):
 				intersection = offset_area.intersection(sweep_line)
-				
 				intersection_coords = list(intersection.coords)
 
-				constraints.append(OpenConstraint(intersection_coords))
+				if len(intersection_coords) > 1:
+					constraints.append(OpenConstraint(intersection_coords))
+				else:
+					# Intersection occurs at a single point so we find the side of the
+					# offset polygon that is most aligned with the transect orientation, i.e.  
+					# least aligned with sweep direction, and use that as the first constraint
+					corner = offset_verts[start_point_index]
+					pt1 = offset_verts[(start_point_index-1)%len(offset_verts)]
+					pt2 = offset_verts[(start_point_index+1)%len(offset_verts)]
+					side_vec1 = np.array(pt1) - np.array(corner)
+					side_vec1 /= np.linalg.norm(side_vec1)
+					side_vec2 = np.array(pt2) - np.array(corner)
+					side_vec2 /= np.linalg.norm(side_vec2)
+					side_proj1 = np.dot(sweep_line_direction, side_vec1)
+					side_proj2 = np.dot(sweep_line_direction, side_vec2)
+
+					if abs(side_proj1) > abs(side_proj2):
+						if side_proj1 < 0:
+							constraints.append(OpenConstraint([pt1, corner]))
+						else:
+							constraints.append(OpenConstraint([corner, pt1]))
+					else:
+						if side_proj2 < 0:
+							constraints.append(OpenConstraint([pt2, corner]))
+						else:
+							constraints.append(OpenConstraint([corner, pt2]))
+
+				# Advance sweep line
 				current_sweep_pos += transect_width
 				sweep_line_coords += (transect_width * self._sweep_direction)
 				
 				line_coords = [tuple(pt) for pt in sweep_line_coords]
 				sweep_line = shapely.geometry.LineString(line_coords)
+				
 
 			""" Probably don't need this now since we compute the first and last constraints
 			elif len(constraints) == 0: 
@@ -476,8 +442,9 @@ class StreamlinePattern(ConstraintLayout):
 			elif bias == 'inner_bank':
 				# Bias towards inner bank and collapse redundant transects
 				transect_width = self._sensor_radius * 2.
-				max_full_transects = int(length / transect_width)
+				max_full_transects = int(length // transect_width)
 
+				print(f"Num Transects: {num_transects}")
 				print(f"Cross Section width: {length}, Max Transect width: {transect_width}, Max Full Transects: {max_full_transects}")
 
 				for i in range(max_full_transects+1):
@@ -493,10 +460,21 @@ class StreamlinePattern(ConstraintLayout):
 					new_transect_width = remaining_dist / num_remaining_transects
 
 					print(f"Remaining Transects: {num_remaining_transects}, Remaining Dist: {remaining_dist}, New Transect Width: {new_transect_width}")
+
+					"""
 					for i in range(1,num_remaining_transects):
 						#transect_coords[max_full_transects+i].append(tuple(last_coord - i*new_transect_width*direction))
 						# Collapse all partial width transects down to bank 
-						transect_coords[max_full_transects+i].append(tuple(cross_section[0]))
+						#transect_coords[max_full_transects+i].append(tuple(cross_section[0]))
+						# Trying to prune coincident transects
+						if transect_coords[max_full_transects+i-1][-1] != tuple(cross_section[0]):
+							transect_coords[max_full_transects+i].append(tuple(cross_section[0]))
+					"""
+					
+					"""
+					if num_remaining_transects > 1:
+						transect_coords[max_full_transects+1].append(tuple(cross_section[0]))
+					"""
 				
 				transect_coords[-1].append(tuple(cross_section[0]))
 

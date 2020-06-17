@@ -13,6 +13,10 @@ sortedcontainers = "*"
 utm = "*"
 matplotlib = "*"
 networkx = "*"
+robot-utils = {editable = true,git = "https://github.com/christomaszewski/robot_utils.git"}
+descartes = "*"
+cartopy = "*"
+pillow = "*"
 
 [requires]
 python_version = "3.6"

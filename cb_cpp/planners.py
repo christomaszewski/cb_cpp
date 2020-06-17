@@ -224,30 +224,48 @@ class EnergyEfficientDrift(object):
 
 class StreamlineBoustrophedon(object):
 
-	def __init__(self, vehicle_radius, sensor_radius, **unknown_options):
+	def __init__(self, vehicle_radius, sensor_radius, bias=None, **unknown_options):
 		self._vehicle_radius = vehicle_radius
 		self._sensor_radius = sensor_radius if sensor_radius else vehicle_radius
+		self._bias = bias
+
 		self._heuristic = rp.heuristics.EuclideanDistance()
 		#self._heuristic = rp.heuristics.DirectedDistance.perpendicular(transect_orientation)
 		self._layout = layouts.StreamlinePattern(vehicle_radius, sensor_radius)
 		self._refinements = [refinements.AlternatingDirections()]
 		self._sequencer = sequencers.GreedySequencer(self._heuristic)
-		self._linker = linkers.SimpleLinker()
+		#self._linker = linkers.SimpleLinker()
+		self._linker = linkers.AStarLinker()
 
-	def plan_coverage_path(self, area, area_ingress_point=None, bias=None):
-		constraints = self._layout.layout_constraints(area, bias=bias)
+	def plan_coverage_path(self, area, area_ingress_point=None):
+		constraints = self._layout.layout_constraints(area, bias=self._bias)
 		for r in self._refinements:
 			r.refine_constraints(constraints, area_ingress_point=area_ingress_point)
 		constraint_chain = self._sequencer.sequence_constraints(constraints, area_ingress_point)
-		path = self._linker.link_constraints(constraint_chain, area_ingress_point)
+
+		print(f"vehicle radius: {self._vehicle_radius}")
+		config_space_boundary, obs = area.get_configuration_space(self._vehicle_radius)
+		config_space = rp.areas.Domain(config_space_boundary)
+
+		path = self._linker.link_constraints(constraint_chain, config_space, area_ingress_point)
 
 		return path
 
+	@property
+	def bias(self):
+		return self._bias
+	
+	@bias.setter
+	def bias(self, new_bias):
+		self._bias = new_bias
+
 class EEStreamlineBoustrophedon(object):
 
-	def __init__(self, vehicle_radius, sensor_radius, flow_field, **unknown_options):
+	def __init__(self, vehicle_radius, sensor_radius, flow_field, bias=None, **unknown_options):
 		self._vehicle_radius = vehicle_radius
 		self._sensor_radius = sensor_radius if sensor_radius else vehicle_radius
+		self._bias = bias
+
 		self._heuristic = rp.heuristics.EuclideanDistance()
 		#self._heuristic = rp.heuristics.DirectedDistance.perpendicular(transect_orientation)
 		self._layout = layouts.StreamlinePattern(vehicle_radius, sensor_radius)
@@ -255,8 +273,8 @@ class EEStreamlineBoustrophedon(object):
 		self._sequencer = sequencers.MatchingSequencer(self._heuristic)
 		self._linker = linkers.SimpleLinker()
 
-	def plan_coverage_path(self, area, area_ingress_point=None, bias=None):
-		constraints = self._layout.layout_constraints(area, bias=bias)
+	def plan_coverage_path(self, area, area_ingress_point=None):
+		constraints = self._layout.layout_constraints(area, bias=self._bias)
 		for r in self._refinements:
 			r.refine_constraints(constraints, area_ingress_point=area_ingress_point)
 		constraint_chain = self._sequencer.sequence_constraints(constraints, area_ingress_point)
@@ -264,12 +282,22 @@ class EEStreamlineBoustrophedon(object):
 
 		return path
 
+	@property
+	def bias(self):
+		return self._bias
+	
+	@bias.setter
+	def bias(self, new_bias):
+		self._bias = new_bias
+
 # Tries all possible sequences of constraints, then computes a total path length and returns the shortest one
 class BruteForceEEStreamlineBoustrophedon(object):
 
-	def __init__(self, vehicle_radius, sensor_radius, flow_field, **unknown_options):
+	def __init__(self, vehicle_radius, sensor_radius, flow_field, bias=None, **unknown_options):
 		self._vehicle_radius = vehicle_radius
 		self._sensor_radius = sensor_radius if sensor_radius else vehicle_radius
+		self._bias = bias
+
 		self._heuristic = rp.heuristics.EuclideanDistance()
 		#self._heuristic = rp.heuristics.DirectedDistance.perpendicular(transect_orientation)
 		self._layout = layouts.StreamlinePattern(vehicle_radius, sensor_radius)
@@ -277,8 +305,8 @@ class BruteForceEEStreamlineBoustrophedon(object):
 		self._sequencer = sequencers.BruteForceMatchingSequencer()
 		self._linker = linkers.SimpleLinker()
 
-	def plan_coverage_path(self, area, area_ingress_point=None, area_egress_point=None, bias=None):
-		constraints = self._layout.layout_constraints(area, bias=bias)
+	def plan_coverage_path(self, area, area_ingress_point=None, area_egress_point=None):
+		constraints = self._layout.layout_constraints(area, bias=self._bias)
 		for r in self._refinements:
 			r.refine_constraints(constraints, area_ingress_point=area_ingress_point)
 		constraint_chains = self._sequencer.sequence_constraints(constraints)
