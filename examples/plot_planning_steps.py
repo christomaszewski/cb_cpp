@@ -24,9 +24,16 @@ dv.plot_domain()
 # Vertical transects
 transect_orientation = (0., 1.)
 
+"""
 heuristic = rp.heuristics.DirectedDistance.perpendicular(transect_orientation)
 layout = cb_cpp.layouts.OrientedBoustrophedonPattern.from_transect_orientation(vehicle_radius, sensor_radius, transect_orientation)
 refinements = [cb_cpp.refinements.AlternatingDirections()]
+sequencer = cb_cpp.sequencers.GreedySequencer(heuristic)
+linker = cb_cpp.linkers.SimpleLinker()
+"""
+heuristic = rp.heuristics.DirectedDistance.perpendicular(transect_orientation)
+layout = cb_cpp.layouts.OrientedBoustrophedonPattern.from_transect_orientation(vehicle_radius, sensor_radius, transect_orientation)
+refinements = []
 sequencer = cb_cpp.sequencers.GreedySequencer(heuristic)
 linker = cb_cpp.linkers.SimpleLinker()
 

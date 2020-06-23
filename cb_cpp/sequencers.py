@@ -2,13 +2,46 @@ from collections import defaultdict
 import itertools
 import numpy as np
 
+import robot_primitives as rp
+
 from .base import ConstraintSequencer
 
 class GreedySequencer(ConstraintSequencer):
 
-	def __init__(self, heuristic):
+	def __init__(self, heuristic, tiebreaker=None):
 		# The heuristic is used to chose the next constraint and its ingress point
 		self._heuristic = heuristic
+		# The tiebreaker, if supplied, is used to break ties in heuristic cost
+		self._tiebreaker = tiebreaker if tiebreaker else rp.heuristics.EuclideanDistance.compute_cost
+
+	def _find_closest_constraint(self, constraints, start_pt):
+		next_constraint = None
+		ingress_point = None
+		ingress_point_index = None
+		min_cost = None
+		min_tiebreaker = None
+		for c in constraints:
+			for idx, pt in enumerate(c.ingress_points):
+				cost = self._heuristic.compute_cost(start_pt, pt)
+				if min_cost is None or cost < min_cost:
+					min_cost = cost
+					min_tiebreaker = self._tiebreaker(start_pt, pt)
+					next_constraint = c
+					ingress_point = pt
+					ingress_point_index = idx
+				elif cost == min_cost and self._tiebreaker:
+					tiebreaker_cost = self._tiebreaker(start_pt, pt)
+					if tiebreaker_cost < min_tiebreaker:
+						min_cost = cost
+						min_tiebreaker = tiebreaker_cost
+						next_constraint = c
+						ingress_point = pt
+						ingress_point_index = idx
+
+		next_constraint.select_ingress(ingress_point)
+
+		print(next_constraint.egress_points)
+		return next_constraint
 
 	def sequence_constraints(self, constraints, start_point=None):
 		starting_constraint = None
@@ -20,19 +53,36 @@ class GreedySequencer(ConstraintSequencer):
 			starting_constraint = constraints[0]
 			ingress_point = starting_constraint.ingress_points[0]
 			ingress_point_index = 0
+			starting_constraint.select_ingress(ingress_point)
 		else:
+			starting_constraint = self._find_closest_constraint(constraints, start_point)
+			"""
+
 			# Do a search to find constraint with ingress points closest to start_point 
 			min_cost = None
 			for c in constraints:
 				for idx, pt in enumerate(c.ingress_points):
 					cost = self._heuristic.compute_cost(start_point, pt)
+					print(f"Cost: {cost}, Min Cost: {min_cost}")
 					if min_cost is None or cost < min_cost:
 						min_cost = cost
 						starting_constraint = c
 						ingress_point = pt
 						ingress_point_index = idx
+					elif cost == min_cost:
+						print("Tie occurred")
+						prev_tiebreaker = np.linalg.norm(np.asarray(ingress_point)-np.asarray(start_point))
+						tiebreaker_cost = np.linalg.norm(np.asarray(pt)-np.asarray(start_point))
+						if tiebreaker_cost < prev_tiebreaker:
+							min_cost = cost
+							starting_constraint = c
+							ingress_point = pt
+							ingress_point_index = idx
 
 		starting_constraint.select_ingress(ingress_point)
+		"""
+
+		print(starting_constraint.egress_points)
 
 		# Setup vars to store chain of constraints
 		constraint_chain = [starting_constraint]
@@ -45,6 +95,8 @@ class GreedySequencer(ConstraintSequencer):
 
 		while len(unchained_constraints) > 0:
 			# Find next closest ingress point on available constraints
+			next_constraint = self._find_closest_constraint(unchained_constraints, chain_egress_pt)
+			"""
 			next_constraint = None
 			ingress_point = None
 			ingress_point_index = None
@@ -52,16 +104,28 @@ class GreedySequencer(ConstraintSequencer):
 			for c in unchained_constraints:
 				for idx, pt in enumerate(c.ingress_points):
 					cost = self._heuristic.compute_cost(chain_egress_pt, pt)
+					print(f"Cost: {cost}, Min Cost: {min_cost}")
 					if min_cost is None or cost < min_cost:
 						min_cost = cost
 						next_constraint = c
 						ingress_point = pt
 						ingress_point_index = idx
-
-			unchained_constraints.remove(next_constraint)
+					elif cost == min_cost:
+						print("Tie occurred")
+						prev_tiebreaker = np.linalg.norm(np.asarray(ingress_point)-np.asarray(chain_egress_pt))
+						tiebreaker_cost = np.linalg.norm(np.asarray(pt)-np.asarray(chain_egress_pt))
+						print(f"Prev tie: {prev_tiebreaker} Curr Tie: {tiebreaker_cost}")
+						if tiebreaker_cost < prev_tiebreaker:
+							min_cost = cost
+							next_constraint = c
+							ingress_point = pt
+							ingress_point_index = idx
 
 			next_constraint.select_ingress(ingress_point)
-
+			
+			"""
+			unchained_constraints.remove(next_constraint)
+			
 			constraint_chain.append(next_constraint)
 			(chain_egress_pt,) = next_constraint.egress_points
 
