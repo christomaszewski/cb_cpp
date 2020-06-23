@@ -207,6 +207,9 @@ class OrientedBoustrophedonPattern(ConstraintLayout):
 				intersection = offset_area.intersection(sweep_line)
 				intersection_coords = list(intersection.coords)
 
+				# Sort intersection coordinates by distance along sweep_line - avoids issues with arbitrary ordering
+				intersection_coords.sort(key=lambda coords: np.dot(np.array(coords), sweep_line_direction))
+
 				if len(intersection_coords) > 1:
 					constraints.append(OpenConstraint(intersection_coords))
 				else:
@@ -240,10 +243,10 @@ class OrientedBoustrophedonPattern(ConstraintLayout):
 				
 				line_coords = [tuple(pt) for pt in sweep_line_coords]
 				sweep_line = shapely.geometry.LineString(line_coords)
-				
 
-			""" Probably don't need this now since we compute the first and last constraints
+			# Probably don't need this now since we compute the first and last constraints
 			elif len(constraints) == 0: 
+				print(f"Sweepline does not intersect polygon, advancing line by {delta}")
 				# Line doesn't interesect polygon and no constraints have been found yet
 				# Advancing slightly and trying again
 				current_sweep_pos += delta
@@ -251,13 +254,14 @@ class OrientedBoustrophedonPattern(ConstraintLayout):
 				line_coords = [tuple(pt) for pt in sweep_line_coords]
 				sweep_line = shapely.geometry.LineString(line_coords)
 			else:
+				print(f"Sweepline does not intersect polygon, retreating line by {delta}")
 				# Line doesn't intersect polygon and we've previously found intersections
 				# Probably advanced beyond edge of polygon, retreat sweep line and try again
 				current_sweep_pos -= delta
 				sweep_line_coords -= (delta * self._sweep_direction)
 				line_coords = [tuple(pt) for pt in sweep_line_coords]
 				sweep_line = shapely.geometry.LineString(line_coords)
-			"""
+			
 		return constraints
 
 class SpiralPattern(ConstraintLayout):
