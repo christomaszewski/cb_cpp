@@ -34,10 +34,11 @@ class LegacyConstraintBasedBoustrophedon(object):
 
 class ConstraintBasedBoustrophedon(object):
 
-	def __init__(self, vehicle_radius, sensor_radius, transect_orientation, **unknown_options):
+	def __init__(self, vehicle_radius, sensor_radius, transect_orientation, alt_config=False, **unknown_options):
 		self._vehicle_radius = vehicle_radius
 		self._sensor_radius = sensor_radius if sensor_radius else vehicle_radius
 		self._transect_orientation = transect_orientation
+		self._alt_config = alt_config
 		#self._heuristic = rp.heuristics.EuclideanDistance()
 		self._heuristic = rp.heuristics.DirectedDistance.perpendicular(transect_orientation)
 		self._layout = layouts.OrientedBoustrophedonPattern.from_transect_orientation(vehicle_radius, sensor_radius, transect_orientation)
@@ -81,10 +82,10 @@ class ConstraintBasedBoustrophedon(object):
 
 		return cls(vehicle_radius, sensor_radius, side_normal)
 
-	def plan_coverage_path(self, area, area_ingress_point=None, alt_config=False):
+	def plan_coverage_path(self, area, area_ingress_point=None):
 		constraints = self._layout.layout_constraints(area)
 		for r in self._refinements:
-			direction = [1, 0] if alt_config else [0, 1]
+			direction = [1, 0] if self._alt_config else [0, 1]
 			r.refine_constraints(constraints, area_ingress_point=area_ingress_point, starting_direction=direction)
 		constraint_chain = self._sequencer.sequence_constraints(constraints, area_ingress_point)
 		path = self._linker.link_constraints(constraint_chain, area_ingress_point)
