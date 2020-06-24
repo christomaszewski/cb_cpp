@@ -33,7 +33,7 @@ linker = cb_cpp.linkers.SimpleLinker()
 """
 heuristic = rp.heuristics.DirectedDistance.perpendicular(transect_orientation)
 layout = cb_cpp.layouts.OrientedBoustrophedonPattern.from_transect_orientation(vehicle_radius, sensor_radius, transect_orientation)
-refinements = []
+refinements = [cb_cpp.refinements.AlternatingDirections()]
 sequencer = cb_cpp.sequencers.GreedySequencer(heuristic)
 linker = cb_cpp.linkers.SimpleLinker()
 
@@ -44,7 +44,7 @@ dv.clear_figure()
 dv.plot_domain()
 
 for r in refinements:
-	r.refine_constraints(constraints, area_ingress_point=domain_ingress_point)
+	r.refine_constraints(constraints, area_ingress_point=domain_ingress_point, starting_direction=[0, 1])
 
 dv.plot_constraints(constraints, plot_sequence=False)
 dv.save(f"{scenario_dir}/output/directed_constraints.png")

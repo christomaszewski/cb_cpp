@@ -81,10 +81,11 @@ class ConstraintBasedBoustrophedon(object):
 
 		return cls(vehicle_radius, sensor_radius, side_normal)
 
-	def plan_coverage_path(self, area, area_ingress_point=None):
+	def plan_coverage_path(self, area, area_ingress_point=None, alt_config=False):
 		constraints = self._layout.layout_constraints(area)
 		for r in self._refinements:
-			r.refine_constraints(constraints, area_ingress_point=area_ingress_point)
+			direction = [1, 0] if alt_config else [0, 1]
+			r.refine_constraints(constraints, area_ingress_point=area_ingress_point, starting_direction=direction)
 		constraint_chain = self._sequencer.sequence_constraints(constraints, area_ingress_point)
 		path = self._linker.link_constraints(constraint_chain, area_ingress_point)
 
