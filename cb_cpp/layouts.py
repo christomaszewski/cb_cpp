@@ -448,6 +448,36 @@ class StreamlinePattern(ConstraintLayout):
 				transect_width = self._sensor_radius * 2.
 				max_full_transects = int(length // transect_width)
 
+				#print(f"Num Transects: {num_transects}")
+				#print(f"Cross Section width: {length}, Max Transect width: {transect_width}, Max Full Transects: {max_full_transects}")
+
+				for i in range(max_full_transects+1):
+					transect_coords[i].append(tuple(cross_section[1] - i*transect_width*direction))
+
+				num_remaining_transects = num_transects + 1 - max_full_transects
+
+				if num_remaining_transects > 1:
+					last_coord = cross_section[1] - max_full_transects*transect_width*direction
+					remaining_vec = last_coord - cross_section[0]
+					remaining_dist = np.linalg.norm(remaining_vec)
+
+					new_transect_width = remaining_dist / num_remaining_transects
+
+					#print(f"Remaining Transects: {num_remaining_transects}, Remaining Dist: {remaining_dist}, New Transect Width: {new_transect_width}")
+
+					for i in range(1,num_remaining_transects):
+						#transect_coords[max_full_transects+i].append(tuple(last_coord - i*new_transect_width*direction))
+						# Collapse all partial width transects down to bank 
+						transect_coords[max_full_transects+i].append(tuple(cross_section[0]))
+
+				
+				transect_coords[-1].append(tuple(cross_section[0]))
+
+			elif bias == 'pruned_inner_bank':
+				# Bias towards inner bank and collapse redundant transects
+				transect_width = self._sensor_radius * 2.
+				max_full_transects = int(length // transect_width)
+
 				print(f"Num Transects: {num_transects}")
 				print(f"Cross Section width: {length}, Max Transect width: {transect_width}, Max Full Transects: {max_full_transects}")
 

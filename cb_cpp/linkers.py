@@ -8,7 +8,7 @@ from .base import ConstraintLinker
 class SimpleLinker(ConstraintLinker):
 	""" Simply connects each constraint egress to the following constraint's ingress point """
 
-	def link_constraints(self, constraint_chain, ingress_point=None, offset=0.0):
+	def link_constraints(self, constraint_chain, domain=None, ingress_point=None, offset=0.0, **unknown_options):
 		coords = []
 		if ingress_point is not None:
 			coords.append(tuple(ingress_point))
@@ -38,7 +38,7 @@ class AStarLinker(ConstraintLinker):
 		 using a A* Post-Smoothed Planner
 	"""
 
-	def link_constraints(self, constraint_chain, domain, ingress_point=None, egress_point=None):
+	def link_constraints(self, constraint_chain, domain, ingress_point=None, egress_point=None, **unknown_options):
 		path_planner = rut.planning.AStarPS(domain, rp.heuristics.EuclideanDistance, 5.0, 0.5)
 
 		coords = []

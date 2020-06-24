@@ -226,30 +226,36 @@ class EnergyEfficientDrift(object):
 
 class StreamlineBoustrophedon(object):
 
-	def __init__(self, vehicle_radius, sensor_radius, bias=None, **unknown_options):
+	def __init__(self, vehicle_radius, sensor_radius, bias=None, alt_config=False, **unknown_options):
 		self._vehicle_radius = vehicle_radius
 		self._sensor_radius = sensor_radius if sensor_radius else vehicle_radius
 		self._bias = bias
+		self._alt_config = alt_config
 
 		self._heuristic = rp.heuristics.EuclideanDistance()
 		#self._heuristic = rp.heuristics.DirectedDistance.perpendicular(transect_orientation)
 		self._layout = layouts.StreamlinePattern(vehicle_radius, sensor_radius)
 		self._refinements = [refinements.AlternatingDirections()]
 		self._sequencer = sequencers.GreedySequencer(self._heuristic)
-		#self._linker = linkers.SimpleLinker()
-		self._linker = linkers.AStarLinker()
+		self._linker = linkers.SimpleLinker()
+		#self._linker = linkers.AStarLinker()
 
 	def plan_coverage_path(self, area, area_ingress_point=None):
 		constraints = self._layout.layout_constraints(area, bias=self._bias)
 		for r in self._refinements:
-			r.refine_constraints(constraints, area_ingress_point=area_ingress_point)
+			direction = [1, 0] if self._alt_config else [0, 1]
+			r.refine_constraints(constraints, area_ingress_point=area_ingress_point, starting_direction=direction)
 		constraint_chain = self._sequencer.sequence_constraints(constraints, area_ingress_point)
 
+		# Config space computation for A* version
+		"""
 		print(f"vehicle radius: {self._vehicle_radius}")
 		config_space_boundary, obs = area.get_configuration_space(self._vehicle_radius)
 		config_space = rp.areas.Domain(config_space_boundary)
+		"""
 
-		path = self._linker.link_constraints(constraint_chain, config_space, area_ingress_point)
+		path = self._linker.link_constraints(constraint_chain, domain=area, ingress_point=area_ingress_point)
+		#path = self._linker.link_constraints(constraint_chain, domain=config_space, ingress_point=area_ingress_point)
 
 		return path
 
