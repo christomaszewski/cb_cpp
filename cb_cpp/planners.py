@@ -55,32 +55,32 @@ class ConstraintBasedBoustrophedon(object):
 		return cls(vehicle_radius, sensor_radius, transect_orientation=(0,1), **options)
 
 	@classmethod
-	def parallel_to_line(cls, vehicle_radius, sensor_radius, line):
+	def parallel_to_line(cls, vehicle_radius, sensor_radius, line, **options):
 		# Transect orientation should be parallel to line so we compute the direction of the line
 		line_direction = (line[1][0] - line[0][0], line[1][1] - line[0][1])
 
-		return cls(vehicle_radius, sensor_radius, line_direction)
+		return cls(vehicle_radius, sensor_radius, line_direction, **options)
 
 	@classmethod
-	def perpendicular_to_line(cls, vehicle_radius, sensor_radius, line):
+	def perpendicular_to_line(cls, vehicle_radius, sensor_radius, line, **options):
 		# Transect orientation should be perpendicular to line so compute normal vector to line
 		normal_vector = (line[0][1] - line[1][1], line[1][0] - line[0][0])
 
-		return cls(vehicle_radius, sensor_radius, normal_vector)
+		return cls(vehicle_radius, sensor_radius, normal_vector, **options)
 
 	@classmethod
-	def parallel_to_side(cls, vehicle_radius, sensor_radius, side):
+	def parallel_to_side(cls, vehicle_radius, sensor_radius, side, **options):
 		# Sweep orientation should be parallel to given side so compute direction of side
 		side_direction = (side[1][0] - side[0][0], side[1][1] - side[0][1])
 
-		return cls(vehicle_radius, sensor_radius, side_direction)
+		return cls(vehicle_radius, sensor_radius, side_direction, **options)
 
 	@classmethod
-	def perpendicular_to_side(cls, vehicle_radius, sensor_radius, side):
+	def perpendicular_to_side(cls, vehicle_radius, sensor_radius, side, **options):
 		# Sweep orientation is perpendicular to given side so compute side normal
 		side_normal = (side[0][1] - side[1][1], side[1][0] - side[0][0])
 
-		return cls(vehicle_radius, sensor_radius, side_normal)
+		return cls(vehicle_radius, sensor_radius, side_normal, **options)
 
 	def plan_coverage_path(self, area, area_ingress_point=None):
 		constraints = self._layout.layout_constraints(area)
