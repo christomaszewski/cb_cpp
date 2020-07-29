@@ -210,15 +210,35 @@ class OrientedBoustrophedonPattern(ConstraintLayout):
 				# Sort intersection coordinates by distance along sweep_line - avoids issues with arbitrary ordering
 				intersection_coords.sort(key=lambda coords: np.dot(np.array(coords), sweep_line_direction))
 
-				if len(intersection_coords) > 1:
+				vec_length = lambda coords: np.linalg.norm(np.array(coords[1]) - np.array(coords[0]))
+
+				if len(intersection_coords) > 1 and vec_length(intersection_coords) > self._vehicle_radius:
+					#print(f"Good intersection, Adding constraint with coords: {intersection_coords}")
 					constraints.append(OpenConstraint(intersection_coords))
 				else:
+					int_pt = np.array(intersection_coords[0])
+					# If there are more than two coords in intersection_coords, average them or choose one
+					if len(intersection_coords) > 1:
+						int_pt = np.mean(np.array(intersection_coords), axis=0)
+
+					# Find closest corner
+					min_idx = 0.
+					min_dist = 9999.
+					for i, pt in enumerate(offset_verts):
+						dist = np.linalg.norm(np.array(pt) - int_pt)
+						if dist < min_dist:
+							min_idx = i
+							min_dist = dist
+
 					# Intersection occurs at a single point so we find the side of the
 					# offset polygon that is most aligned with the transect orientation, i.e.  
 					# least aligned with sweep direction, and use that as the first constraint
-					corner = offset_verts[start_point_index]
-					pt1 = offset_verts[(start_point_index-1)%len(offset_verts)]
-					pt2 = offset_verts[(start_point_index+1)%len(offset_verts)]
+					# corner = offset_verts[start_point_index]
+					# pt1 = offset_verts[(start_point_index-1)%len(offset_verts)]
+					# pt2 = offset_verts[(start_point_index+1)%len(offset_verts)]
+					corner = offset_verts[min_idx]
+					pt1 = offset_verts[(min_idx-1)%len(offset_verts)]
+					pt2 = offset_verts[(min_idx+1)%len(offset_verts)]
 					side_vec1 = np.array(pt1) - np.array(corner)
 					side_vec1 /= np.linalg.norm(side_vec1)
 					side_vec2 = np.array(pt2) - np.array(corner)
@@ -228,13 +248,17 @@ class OrientedBoustrophedonPattern(ConstraintLayout):
 
 					if abs(side_proj1) > abs(side_proj2):
 						if side_proj1 < 0:
+							#print(f"Adding constraint with coords: {[pt1, corner]}")
 							constraints.append(OpenConstraint([pt1, corner]))
 						else:
+							#print(f"Adding constraint with coords: {[corner, pt1]}")
 							constraints.append(OpenConstraint([corner, pt1]))
 					else:
 						if side_proj2 < 0:
+							#print(f"Adding constraint with coords: {[pt2, corner]}")
 							constraints.append(OpenConstraint([pt2, corner]))
 						else:
+							#print(f"Adding constraint with coords: {[corner, pt2]}")
 							constraints.append(OpenConstraint([corner, pt2]))
 
 				# Advance sweep line
@@ -246,7 +270,7 @@ class OrientedBoustrophedonPattern(ConstraintLayout):
 
 			# Probably don't need this now since we compute the first and last constraints
 			elif len(constraints) == 0: 
-				print(f"Sweepline does not intersect polygon, advancing line by {delta}")
+				#print(f"Sweepline does not intersect polygon, advancing line by {delta}")
 				# Line doesn't interesect polygon and no constraints have been found yet
 				# Advancing slightly and trying again
 				current_sweep_pos += delta
@@ -254,7 +278,7 @@ class OrientedBoustrophedonPattern(ConstraintLayout):
 				line_coords = [tuple(pt) for pt in sweep_line_coords]
 				sweep_line = shapely.geometry.LineString(line_coords)
 			else:
-				print(f"Sweepline does not intersect polygon, retreating line by {delta}")
+				#print(f"Sweepline does not intersect polygon, retreating line by {delta}")
 				# Line doesn't intersect polygon and we've previously found intersections
 				# Probably advanced beyond edge of polygon, retreat sweep line and try again
 				current_sweep_pos -= delta
