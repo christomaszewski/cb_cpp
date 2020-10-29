@@ -368,10 +368,17 @@ class StreamlinePattern(ConstraintLayout):
 		# # Offset the area according to offset
 		offset_area = area.polygon.buffer(-offset, join_style=2)
 
-		mid_idx = int(len(offset_area.exterior.coords)/2)
-		bank_1 = [np.array(pt) for pt in offset_area.exterior.coords[:mid_idx]]
-		bank_2 = [np.array(pt) for pt in reversed(offset_area.exterior.coords[mid_idx:-1])]
-		print(len(area.polygon.exterior.coords), len(offset_area.exterior.coords), len(bank_1), len(bank_2))
+		coords = offset_area.exterior.coords[1:]
+		idx = int(np.argmin(coords, axis=0)[0])
+
+		new_coords = [*coords[idx:], *coords[:idx]]
+
+		mid_idx = int(len(new_coords)/2)
+		#print(mid_idx,new_coords[mid_idx-1], new_coords[mid_idx], new_coords[mid_idx+1])
+		bank_1 = [np.array(pt) for pt in new_coords[:mid_idx]]
+		bank_2 = [np.array(pt) for pt in reversed(new_coords[mid_idx:])]
+		#print(len(area.polygon.exterior.coords), len(new_coords), len(bank_1), len(bank_2))
+
 		# print(len(offset_area.exterior.coords), mid_idx)
 		# print(offset_area.exterior.coords[:3], offset_area.exterior.coords[mid_idx], offset_area.exterior.coords[-3:])
 		# print(bank_1[-3:], bank_2[-3:], len(bank_1), len(bank_2))
@@ -382,17 +389,21 @@ class StreamlinePattern(ConstraintLayout):
 		min_width = min(cross_section_lengths)
 
 		num_transects = int(np.ceil(max_width/(2*self._sensor_radius) - 1))
+		"""
 		print(f"Offset: {offset}")
 		print(f"Max cross section width: {max_width}, Num Transects: {num_transects+2}")
 		print(f"Min cross section width: {min(cross_section_lengths)}")
-		print(offset_area.exterior.coords[:3], offset_area.exterior.coords[-3:])
+		print(new_coords[:3], new_coords[-3:])
 		print(bank_1[:3], bank_1[-3:])
 		print(bank_2[:3], bank_2[-3:])
-
+		"""
+		
 		num_full_transects = int(min_width/(2*self._sensor_radius))
 
 		transect_coords = [[] for i in range(num_transects+2)]
+		#print("Computing transects...")
 		for cross_section in zip(bank_1, bank_2):
+			#print(cross_section)
 			cross_vec = cross_section[1]-cross_section[0]
 			length = np.linalg.norm(cross_vec)
 			direction = cross_vec / length
