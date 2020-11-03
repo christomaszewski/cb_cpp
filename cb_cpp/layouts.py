@@ -1,6 +1,7 @@
 import numpy as np
 import shapely.geometry
 import operator
+import queue
 
 from .base import ConstraintLayout
 from .constraint import OpenConstraint, ClosedConstraint
@@ -303,6 +304,69 @@ class SpiralPattern(ConstraintLayout):
 			print('No boundary offset specified, setting to max of vehicle and sensor radii.')
 			self._boundary_offset = max(sensor_radius, vehicle_radius)
 
+	def _compute_interior_angles(self, polygon):
+		coord_list = list(polygon.exterior.coords)[:-1]
+
+		interior_angles = {}
+
+		for i, pt in enumerate(coord_list):
+			curr_pt = np.array(pt)
+			prev_pt = np.array(coord_list[i-1])
+			next_pt = np.array(coord_list[(i+1)%len(coord_list)])
+
+			a = prev_pt - curr_pt
+			b = next_pt - curr_pt
+			cos_angle = np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+			angle = np.degrees(np.arccos(cos_angle))
+
+			interior_angles[pt] = angle
+
+		return interior_angles
+
+
+	def layout_constraints(self, area, compute_offset=True, **unknown_options):
+		offset = self._boundary_offset
+
+		if compute_offset:
+			# Compute true max (while still ensuring coverage) boundary offset from corners of area
+			# based on interior angles of polygon. No less than vehicle radius
+			min_angle = min(area.interior_angles.values())
+			max_offset = self._boundary_offset * np.sin(np.radians(min_angle/2.))
+
+			offset = max(self._vehicle_radius, max_offset)
+
+		buffered_polygon = area.polygon.buffer(-offset, join_style=2)
+		offset_polygons = queue.Queue()
+		if isinstance(buffered_polygon, shapely.geometry.MultiPolygon):
+			for p in list(buffered_polygon):
+				offset_polygons.put(p)
+		else:
+			offset_polygons.put(buffered_polygon)
+
+		constraints = []
+
+		#while offset_polygon.exterior:
+		while not offset_polygons.empty():
+			curr_poly = offset_polygons.get()
+			# Create closed constraint from coords of current offset polygon
+			constraints.append(ClosedConstraint(curr_poly.exterior.coords[:-1]))
+			
+			# Compute the max offset for the next polygon that still ensures complete coverage
+			min_angle = min(self._compute_interior_angles(curr_poly).values())
+			max_offset = 2 * self._sensor_radius * np.sin(np.radians(min_angle/2.))			
+			offset = max(self._vehicle_radius, max_offset)
+
+			buffered_polygon = curr_poly.buffer(-offset, join_style=2)
+			
+			if buffered_polygon:
+				if isinstance(buffered_polygon, shapely.geometry.MultiPolygon):
+					for p in list(buffered_polygon):
+						offset_polygons.put(p)
+				else:
+					offset_polygons.put(buffered_polygon)
+
+		return constraints
+"""
 	def layout_constraints(self, area, compute_offset=True, **unknown_options):
 		offset = self._boundary_offset
 
@@ -317,7 +381,13 @@ class SpiralPattern(ConstraintLayout):
 		offset_polygon = area.polygon.buffer(-offset, join_style=2)
 		constraints = []
 
-		while offset_polygon.exterior:
+		#while offset_polygon.exterior:
+		while offset_polygon:
+			polys = [offset_polygon]
+			if offset_polygon isinstance(shapely.geometry.MultiPolygon):
+				polys = list(offset_polygon)
+
+			for p in polys:
 			# Create closed constraint from coords of current offset polygon
 			constraints.append(ClosedConstraint(offset_polygon.exterior.coords[:-1]))
 			
@@ -329,6 +399,8 @@ class SpiralPattern(ConstraintLayout):
 			offset_polygon = offset_polygon.buffer(-offset, join_style=2)
 
 		return constraints
+"""
+
 
 class StreamlinePattern(ConstraintLayout):
 
@@ -397,7 +469,7 @@ class StreamlinePattern(ConstraintLayout):
 		print(bank_1[:3], bank_1[-3:])
 		print(bank_2[:3], bank_2[-3:])
 		"""
-		
+
 		num_full_transects = int(min_width/(2*self._sensor_radius))
 
 		transect_coords = [[] for i in range(num_transects+2)]
