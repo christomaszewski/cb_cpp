@@ -34,7 +34,7 @@ class LegacyConstraintBasedBoustrophedon(object):
 
 class ConstraintBasedBoustrophedon(object):
 
-	def __init__(self, vehicle_radius, sensor_radius, transect_orientation, alt_config=False, **unknown_options):
+	def __init__(self, vehicle_radius, sensor_radius, transect_orientation, alt_config=False, simple_linker=True, **unknown_options):
 		self._vehicle_radius = vehicle_radius
 		self._sensor_radius = sensor_radius if sensor_radius else vehicle_radius
 		self._transect_orientation = transect_orientation
@@ -44,7 +44,10 @@ class ConstraintBasedBoustrophedon(object):
 		self._layout = layouts.OrientedBoustrophedonPattern.from_transect_orientation(vehicle_radius, sensor_radius, transect_orientation)
 		self._refinements = [refinements.AlternatingDirections()]
 		self._sequencer = sequencers.GreedySequencer(self._heuristic)
-		self._linker = linkers.SimpleLinker()
+		if simple_linker:
+			self._linker = linkers.SimpleLinker()
+		else:
+			self._linker = linkers.AStarLinker()
 
 	@classmethod
 	def horizontal(cls, vehicle_radius, sensor_radius=None, **options):
@@ -88,7 +91,8 @@ class ConstraintBasedBoustrophedon(object):
 			direction = [1, 0] if self._alt_config else [0, 1]
 			r.refine_constraints(constraints, area_ingress_point=area_ingress_point, starting_direction=direction)
 		constraint_chain = self._sequencer.sequence_constraints(constraints, area_ingress_point)
-		path = self._linker.link_constraints(constraint_chain, area_ingress_point)
+		d = area.offset_domain(self._vehicle_radius)
+		path = self._linker.link_constraints(constraint_chain, domain=d, ingress_point=area_ingress_point)
 
 		return path
 
