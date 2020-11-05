@@ -38,8 +38,8 @@ class AStarLinker(ConstraintLinker):
 		 using a A* Post-Smoothed Planner
 	"""
 
-	def link_constraints(self, constraint_chain, domain, ingress_point=None, egress_point=None, **unknown_options):
-		path_planner = rut.planning.AStarPS(domain, rp.heuristics.EuclideanDistance, 5.0, 0.5)
+	def link_constraints(self, constraint_chain, domain, ingress_point=None, egress_point=None, arrival_threshold=5.0, step_size=0.01, **unknown_options):
+		path_planner = rut.planning.AStarPS(domain, rp.heuristics.EuclideanDistance, arrival_threshold, step_size)
 
 		coords = []
 		path_constraints = collections.defaultdict(list)
